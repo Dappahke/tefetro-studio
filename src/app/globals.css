@@ -1,0 +1,105 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-canvas text-stone-700 antialiased;
+  }
+  
+  ::selection {
+    @apply bg-tefetra/20 text-deep-700;
+  }
+}
+
+@layer components {
+  /* Glassmorphism */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-white/30;
+    box-shadow: 0 4px 30px rgba(9, 68, 83, 0.08);
+  }
+  
+  .glass-dark {
+    @apply bg-deep-500/10 backdrop-blur-md border border-deep-500/20;
+  }
+  
+  /* Primary CTA - Orange */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           bg-tefetra text-white font-semibold rounded-lg
+           transition-all duration-300 ease-out
+           hover:bg-tefetra-500 hover:shadow-tefetra hover:-translate-y-0.5
+           active:translate-y-0;
+  }
+  
+  /* Secondary - Deep Teal */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           bg-deep text-canvas font-semibold rounded-lg
+           transition-all duration-300 ease-out
+           hover:bg-deep-600 hover:shadow-lg hover:-translate-y-0.5
+           active:translate-y-0;
+  }
+  
+  /* Tertiary - Sage */
+  .btn-tertiary {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           bg-sage text-white font-semibold rounded-lg
+           transition-all duration-300 ease-out
+           hover:bg-sage-600 hover:-translate-y-0.5
+           active:translate-y-0;
+  }
+  
+  /* Ghost - Transparent with border */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           text-deep font-semibold rounded-lg border-2 border-deep/20
+           transition-all duration-300 ease-out
+           hover:bg-deep/5 hover:border-deep/40;
+  }
+  
+  /* Section spacing */
+  .section {
+    @apply w-full px-4 sm:px-6 lg:px-8 xl:px-12;
+    padding-top: clamp(3rem, 8vw, 6rem);
+    padding-bottom: clamp(3rem, 8vw, 6rem);
+  }
+  
+  .section-inner {
+    @apply max-w-7xl mx-auto;
+  }
+  
+  /* Gradients */
+  .text-gradient {
+    @apply bg-gradient-to-r from-tefetra to-deep bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-brand {
+    @apply bg-gradient-to-br from-deep via-deep-600 to-deep-700;
+  }
+  
+  /* Canvas background utilities */
+  .bg-canvas-subtle {
+    background-color: #f5efe6;
+  }
+}
+
+@layer utilities {
+  .particle-canvas {
+    @apply fixed inset-0 w-full h-full pointer-events-none z-0;
+  }
+  
+  .content-layer {
+    @apply relative z-10;
+  }
+  
+  .aspect-plan {
+    aspect-ratio: 4/3;
+  }
+}
+@layer components {
+  .section-inner {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12;
+  }
+}
