@@ -9,8 +9,8 @@ export default async function ProductsPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined }
 }) {
-  // Pass searchParams to DAL for filtering
-  const products = await fetchProducts(searchParams)
+  // fetchProducts returns { products, total, limit, offset }
+  const { products, total, limit, offset } = await fetchProducts(searchParams)
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -43,7 +43,12 @@ export default async function ProductsPage({
       <section className="py-8 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
           <Suspense fallback={<ProductGridSkeleton />}>
-            <ProductGrid products={products} />
+            <ProductGrid 
+              products={products} 
+              total={total}
+              limit={limit}
+              offset={offset}
+            />
           </Suspense>
         </div>
       </section>

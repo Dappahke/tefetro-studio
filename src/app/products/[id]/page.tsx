@@ -47,7 +47,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <div className="relative aspect-[4/3] bg-neutral-100 rounded-2xl overflow-hidden shadow-soft">
                 {product.file_path ? (
                   <Image
-                    src={`/api/drawings/preview/${product.id}`}
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/drawings/${product.file_path}`}
                     alt={product.title}
                     fill
                     className="object-cover"

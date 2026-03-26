@@ -50,7 +50,7 @@ export function OrderSummary({
         <div className="w-20 h-20 bg-neutral-100 rounded-xl flex items-center justify-center flex-shrink-0">
           {product.file_path ? (
             <img 
-              src={`/api/drawings/preview/${product.id}`}
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/drawings/${product.file_path}`}
               alt={product.title}
               className="w-full h-full object-cover rounded-xl"
             />

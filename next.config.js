@@ -1,16 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use Webpack instead of Turbopack (more stable)
   webpack: (config) => {
     return config;
   },
-  
-  // Images config
+
   images: {
-    domains: ['localhost', '*.supabase.co', 'images.unsplash.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
   },
-  
-  // Headers for API routes
+
   async headers() {
     return [
       {

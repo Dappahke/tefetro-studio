@@ -14,15 +14,13 @@ interface Product {
 }
 
 interface ProductGridProps {
-  products: {
-    products: Product[]
-    total: number
-    limit: number
-    offset: number
-  }
+  products: Product[]
+  total: number
+  limit: number
+  offset: number
 }
 
-export function ProductGrid({ products: { products, total, limit, offset } }: ProductGridProps) {
+export function ProductGrid({ products, total, limit, offset }: ProductGridProps) {
   const hasMore = total > offset + limit
   const showingStart = offset + 1
   const showingEnd = Math.min(offset + products.length, total)
