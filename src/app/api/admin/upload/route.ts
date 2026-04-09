@@ -15,6 +15,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const folder = (formData.get('folder') as string) || 'products' // <-- ADD THIS
 
     if (!file) {
       return NextResponse.json(
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     // Generate unique filename
     const ext = file.name.split('.').pop()
     const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${ext}`
-    const path = `products/${filename}`
+    const path = `${folder}/${filename}` // <-- USE FOLDER HERE
 
     // Upload to Supabase Storage
     const arrayBuffer = await file.arrayBuffer()
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      path,
+      path, // e.g., "drawings/1234567890-abc.pdf" or "elevations/1234567890-abc.png"
       url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/drawings/${path}`,
     })
 

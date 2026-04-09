@@ -7,10 +7,13 @@ interface Product {
   price: number
   category: string | null
   file_path: string | null
+  elevation_images?: string[] | null  // Added this field
   bedrooms?: number
   bathrooms?: number
   floors?: number
   plinth_area?: number
+  length?: number
+  width?: number
 }
 
 interface ProductGridProps {

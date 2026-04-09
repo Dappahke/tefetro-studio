@@ -1,12 +1,37 @@
 import { verifyAdmin } from '@/lib/dal'
 import { adminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { ProductForm } from '@/components/admin/ProductForm'
 
-export default async function NewProductPage() {
-  await verifyAdmin()
+interface EditProductPageProps {
+  params: {
+    id: string
+  }
+}
 
-  // Fetch addons for linking
+export default async function EditProductPage({ params }: EditProductPageProps) {
+  await verifyAdmin()
+  const { id } = params
+
+  // Fetch product
+  const { data: product } = await adminClient
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!product) {
+    notFound()
+  }
+
+  // Fetch linked addons with price overrides and documents
+  const { data: linkedAddons } = await adminClient
+    .from('product_addons')
+    .select('addon_id, price_override, document_path')
+    .eq('product_id', id)
+
+  // Fetch all addons
   const { data: addons } = await adminClient
     .from('addons')
     .select('*')
@@ -26,16 +51,17 @@ export default async function NewProductPage() {
           </svg>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-deep-700">Add New Product</h1>
-          <p className="text-sm text-neutral-500">Create a new architectural plan</p>
+          <h1 className="text-2xl font-bold text-deep-700">Edit Product</h1>
+          <p className="text-sm text-neutral-500">Update architectural plan details</p>
         </div>
       </div>
 
       {/* Form */}
       <ProductForm 
-        mode="create" 
+        mode="edit" 
+        product={product}
         addons={addons || []}
-        linkedAddons={[]}
+        linkedAddons={linkedAddons || []}
       />
     </div>
   )

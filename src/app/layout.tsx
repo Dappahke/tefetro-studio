@@ -26,11 +26,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Tefetra Studios | Architectural Plans & Construction Services",
-    template: "%s | Tefetra Studios",
+    default: "Tefetro Studios | Architectural Plans & Construction Services",
+    template: "%s | Tefetro Studios",
   },
   description:
-    "Tefetra Studios is Africa's leading PropTech platform for architectural drawings, construction services, and building solutions. Founded by Noel Syambi and Nicholas Wafula Walwa.",
+    "Tefetro Studios is Africa's leading PropTech platform for architectural drawings, construction services, and building solutions. Founded by Noel Syambi and Nicholas Wafula Walwa.",
   keywords: [
     "architectural plans",
     "house plans Kenya",
@@ -38,25 +38,25 @@ export const metadata: Metadata = {
     "building plans",
     "residential architecture",
     "BOQ Kenya",
-    "Tefetra Studios",
+    "Tefetro Studios",
     "Noel Syambi",
-    "Nicholas Wafula Walwa",
+    "Nicholas Wafula Wamalwa",
   ],
   authors: [
-    { name: "Noel Syambi", url: "https://tefetra.studio" },
-    { name: "Nicholas Wafula Walwa" },
+    { name: "Noel Syambi", url: "https://tefetro.studio" },
+    { name: "Nicholas Wafula Wamalwa" },
   ],
   creator: "Noel Syambi",
-  publisher: "Tefetra Limited",
-  metadataBase: new URL("https://tefetra.studio"),
+  publisher: "Tefetro Limited",
+  metadataBase: new URL("https://tefetro.studio"),
   alternates: { canonical: "/" },
 
   openGraph: {
     type: "website",
     locale: "en_KE",
-    url: "https://tefetra.studio",
-    siteName: "Tefetra Studios",
-    title: "Tefetra Studios | Build Your Dream Home",
+    url: "https://tefetro.studio",
+    siteName: "Tefetro Studios",
+    title: "Tefetro Studios | Build Your Dream Home",
     description:
       "Premium architectural plans and construction services in Kenya and across Africa.",
     images: [
@@ -64,14 +64,14 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Tefetra Studios - Architectural Plans & Construction",
+        alt: "Tefetro Studios - Architectural Plans & Construction",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Tefetra Studios | Build Your Dream Home",
+    title: "Tefetro Studios | Build Your Dream Home",
     description:
       "Premium architectural plans and construction services.",
     images: ["/og-image.jpg"],
@@ -110,7 +110,7 @@ const organizationSchema = {
     },
     {
       "@type": "Person",
-      name: "Nicholas Wafula Walwa",
+      name: "Nicholas Wafula Wamalwa",
     },
   ],
 

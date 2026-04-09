@@ -12,6 +12,9 @@ export type AuditEvent =
   | 'order_created'
   | 'link_regenerated'
   | 'admin_login'
+  | 'product_created'
+  | 'product_updated'
+  | 'product_deleted'
 
 interface AuditLogEntry {
   event: AuditEvent
@@ -19,6 +22,7 @@ interface AuditLogEntry {
   email?: string
   orderId?: string
   projectId?: string
+  productId?: string
   metadata?: Record<string, unknown>
   ip?: string
   userAgent?: string
@@ -42,6 +46,7 @@ export async function logAuditEvent(entry: Omit<AuditLogEntry, 'timestamp'>) {
       email: logEntry.email || null,
       order_id: logEntry.orderId || null,
       project_id: logEntry.projectId || null,
+      product_id: logEntry.productId || null,
       metadata: logEntry.metadata || null,
       ip_address: logEntry.ip || null,
       user_agent: logEntry.userAgent || null,
@@ -111,5 +116,30 @@ export const audit = {
       userId: data.userId,
       orderId: data.orderId,
       metadata: { adminId: data.adminId },
+    }),
+
+  // Product audit events
+  productCreated: (data: { userId: string; productId: string; title: string; price: number }) =>
+    logAuditEvent({
+      event: 'product_created',
+      userId: data.userId,
+      productId: data.productId,
+      metadata: { title: data.title, price: data.price },
+    }),
+
+  productUpdated: (data: { userId: string; productId: string; title: string; changes: string[] }) =>
+    logAuditEvent({
+      event: 'product_updated',
+      userId: data.userId,
+      productId: data.productId,
+      metadata: { title: data.title, changes: data.changes },
+    }),
+
+  productDeleted: (data: { userId: string; productId: string; title?: string }) =>
+    logAuditEvent({
+      event: 'product_deleted',
+      userId: data.userId,
+      productId: data.productId,
+      metadata: { title: data.title },
     }),
 }

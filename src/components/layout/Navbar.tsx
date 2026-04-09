@@ -20,7 +20,7 @@ const mainNavItems = [
   { name: "Home", href: "/", icon: Home },
   { name: "Plans", href: "/products", icon: Grid3X3 },
   { name: "Projects", href: "/projects", icon: FolderKanban },
-  { name: "Account", href: "/dashboard", icon: User },
+  { name: "Account", href: "/login", icon: User },
 ];
 
 const menuNavItems = [
