@@ -1,10 +1,12 @@
+import { ReactNode } from "react"
+
 interface StatsCardProps {
   title: string
   value: string
   trend: string
   trendUp: boolean
   alert?: boolean
-  icon: string
+  icon: ReactNode
 }
 
 export function StatsCard({ title, value, trend, trendUp, alert, icon }: StatsCardProps) {
