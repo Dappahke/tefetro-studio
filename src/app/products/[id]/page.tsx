@@ -25,6 +25,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     // Generate product code
     const productCode = `TSB${product.category?.substring(0, 1).toUpperCase() || 'X'}${product.id.slice(-4)}`
 
+    // Get first elevation image for main display, fallback to PDF icon
+    const mainImage = product.elevation_images?.[0]
+    const hasElevations = product.elevation_images && product.elevation_images.length > 0
+
     return (
       <main className="min-h-screen bg-canvas">
         {/* Breadcrumb */}
@@ -45,16 +49,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {/* Left: Image Gallery */}
             <div className="space-y-4">
               <div className="relative aspect-[4/3] bg-neutral-100 rounded-2xl overflow-hidden shadow-soft">
-                {product.file_path ? (
+                {mainImage ? (
+                  // Show first elevation image
                   <Image
-                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/drawings/${product.file_path}`}
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public${mainImage.startsWith('/') ? '' : '/'}${mainImage}`}
                     alt={product.title}
                     fill
                     className="object-cover"
                     sizes="(max-width: 1024px) 100vw, 50vw"
                     priority
                   />
+                ) : product.file_path ? (
+                  // PDF fallback - show icon instead of trying to render PDF
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-500">
+                    <svg className="w-20 h-20 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-lg font-medium">Architectural Drawing PDF</span>
+                    <span className="text-sm text-red-400 mt-1">Available for download after purchase</span>
+                  </div>
                 ) : (
+                  // Empty placeholder
                   <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
                     <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -70,21 +85,36 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 )}
               </div>
 
-              {/* Thumbnail Grid */}
-              <div className="grid grid-cols-4 gap-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <button 
-                    key={i} 
-                    className={`aspect-square bg-neutral-100 rounded-xl overflow-hidden border-2 ${i === 1 ? 'border-tefetra' : 'border-transparent hover:border-mist'} transition-colors`}
-                  >
-                    <div className="w-full h-full flex items-center justify-center text-neutral-300">
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {/* Thumbnail Grid - Show actual elevation images */}
+              {hasElevations && (
+                <div className="grid grid-cols-4 gap-3">
+                  {product.elevation_images!.slice(0, 4).map((img: string, i: number) => (
+                    <div 
+                      key={i} 
+                      className={`aspect-square bg-neutral-100 rounded-xl overflow-hidden border-2 ${i === 0 ? 'border-tefetra' : 'border-transparent'} transition-colors relative`}
+                    >
+                      <Image
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/drawings${img.startsWith('/') ? '' : '/'}${img}`}
+                        alt={`${product.title} view ${i + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 1024px) 25vw, 12vw"
+                      />
+                    </div>
+                  ))}
+                  {/* Fill remaining slots with placeholders if less than 4 images */}
+                  {Array.from({ length: Math.max(0, 4 - (product.elevation_images?.length || 0)) }).map((_, i: number) => (
+                    <div 
+                      key={`placeholder-${i}`}
+                      className="aspect-square bg-neutral-100 rounded-xl overflow-hidden border-2 border-transparent flex items-center justify-center"
+                    >
+                      <svg className="w-6 h-6 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
-                  </button>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right: Product Info */}

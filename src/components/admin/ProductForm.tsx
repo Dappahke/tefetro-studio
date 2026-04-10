@@ -87,14 +87,21 @@ export function ProductForm({ mode, product, addons, linkedAddons = [] }: Produc
     existingPath: product?.file_path || null
   })
 
-  // Elevation images (max 5 PNGs)
+  // Elevation images (max 5 PNGs) — FIXED: Store full Supabase URL
   const [elevations, setElevations] = useState<FileUpload[]>(() => {
     const existing = product?.elevation_images || []
-    return Array(5).fill(null).map((_, i) => ({
-      file: null,
-      preview: existing[i] || null,
-      existingPath: existing[i] || null
-    }))
+    return Array(5).fill(null).map((_, i) => {
+      const path = existing[i]
+      // FIX: Construct full Supabase URL for stored paths
+      const fullUrl = path && !path.startsWith('http')
+        ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/drawings/${path}`
+        : path
+      return {
+        file: null,
+        preview: fullUrl || null,
+        existingPath: path || null
+      }
+    })
   })
 
   // Form state
@@ -570,8 +577,7 @@ export function ProductForm({ mode, product, addons, linkedAddons = [] }: Produc
                         config.selected
                           ? 'border-green-500 bg-green-50'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
+                      }`}>
                       <label className="flex items-start gap-3 cursor-pointer mb-3">
                         <input
                           type="checkbox"
@@ -644,7 +650,9 @@ export function ProductForm({ mode, product, addons, linkedAddons = [] }: Produc
                     <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                     </svg>
-                    <span className="font-medium">PDF Uploaded</span>
+                    <span className="font-medium">
+                      {drawingPdf.file ? drawingPdf.file.name : drawingPdf.existingPath?.split('/').pop() || 'PDF Document'}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -742,6 +750,7 @@ function ElevationUpload({
       
       {elevation.preview ? (
         <>
+          {/* elevation.preview is now a full URL (either blob: for new uploads or https:// for existing) */}
           <Image
             src={elevation.preview}
             alt={`Elevation ${index + 1}`}

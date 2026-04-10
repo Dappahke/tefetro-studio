@@ -38,9 +38,10 @@ export const verifyAdmin = cache(async () => {
 export async function fetchProducts(searchParams?: { [key: string]: string | string[] | undefined }) {
   const supabase = await createClient()
   
+  // FIXED: Explicitly select elevation_images and addon_count
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select('*, elevation_images, product_addons(count)', { count: 'exact' })
     .order('created_at', { ascending: false })
 
   // Apply category filter
@@ -87,8 +88,14 @@ export async function fetchProducts(searchParams?: { [key: string]: string | str
 
   if (error) throw new Error(`Failed to fetch products: ${error.message}`)
   
+  // FIXED: Map the count result to addon_count for each product
+  const products = (data || []).map((p: any) => ({
+    ...p,
+    addon_count: p.product_addons?.[0]?.count || 0
+  }))
+
   return {
-    products: data || [],
+    products,
     total: count || 0,
     limit,
     offset,
@@ -98,7 +105,7 @@ export async function fetchProducts(searchParams?: { [key: string]: string | str
 export async function fetchProductById(id: string) {
   const supabase = await createClient()
   
-  // Fetch product with linked addons via junction table
+  // Fetch product with its linked addons via junction table
   const { data: product, error: productError } = await supabase
     .from('products')
     .select('*')
