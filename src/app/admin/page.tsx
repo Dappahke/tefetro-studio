@@ -3,7 +3,7 @@ import { fetchAllOrders } from '@/lib/dal'
 import Link from 'next/link'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { RecentOrders } from '@/components/admin/RecentOrders'
-import { RevenueChart } from '@/components/admin/RevenueChart'
+import { RevenueAnalytics } from '@/components/admin/RevenueChart'
 
 export default async function AdminDashboardPage() {
   const session = await verifyAdmin()
@@ -75,7 +75,7 @@ export default async function AdminDashboardPage() {
               <option>This year</option>
             </select>
           </div>
-          <RevenueChart orders={orders} />
+          <RevenueAnalytics />
         </div>
 
         {/* Quick Actions */}

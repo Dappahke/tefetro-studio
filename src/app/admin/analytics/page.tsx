@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { StatsCard } from "@/components/admin/StatsCard";
-import { RevenueChart } from "@/components/admin/RevenueChart";
+import { RevenueAnalytics } from "@/components/admin/RevenueChart";
 import {
   DollarSign,
   ShoppingCart,
@@ -200,7 +200,7 @@ export default function AnalyticsPage() {
         </h2>
 
         {analytics.chartData.length > 0 ? (
-          <RevenueChart orders={analytics.chartData} />
+          <RevenueAnalytics  />
         ) : (
           <p className="text-gray-400 text-sm">
             No data available

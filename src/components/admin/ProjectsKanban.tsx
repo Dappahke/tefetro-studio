@@ -2,22 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { Project } from "@/types/project"
 
+// ✅ Extend status locally (WITHOUT redefining Project)
 type ProjectStatus = 'pending' | 'contacted' | 'in_progress' | 'completed'
-
-interface Project {
-  id: string
-  service_type: string
-  status: ProjectStatus
-  email: string
-  created_at: string
-  order: {
-    id: string
-    email: string
-    total: number
-    product: { title: string }
-  }
-}
 
 interface ProjectsKanbanProps {
   projects: Project[]
@@ -61,19 +49,19 @@ export function ProjectsKanban({ projects }: ProjectsKanbanProps) {
     }
   }
 
-  const getProjectsByStatus = (status: ProjectStatus) => 
+  const getProjectsByStatus = (status: ProjectStatus) =>
     projects.filter(p => p.status === status)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {columns.map((column) => (
-        <div 
+        <div
           key={column.id}
           className={`rounded-2xl border-2 ${column.color} min-h-[400px]`}
           onDragOver={(e) => e.preventDefault()}
           onDrop={() => handleDrop(column.id)}
         >
-          {/* Column Header */}
+          {/* Header */}
           <div className="p-4 border-b border-black/5">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-deep-700">{column.title}</h3>
@@ -90,7 +78,9 @@ export function ProjectsKanban({ projects }: ProjectsKanbanProps) {
                 key={project.id}
                 draggable
                 onDragStart={() => handleDragStart(project.id)}
-                className={`bg-white rounded-xl p-4 shadow-soft cursor-move hover:shadow-medium transition-shadow ${isUpdating && draggingId === project.id ? 'opacity-50' : ''}`}
+                className={`bg-white rounded-xl p-4 shadow-soft cursor-move hover:shadow-medium transition-shadow ${
+                  isUpdating && draggingId === project.id ? 'opacity-50' : ''
+                }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <span className="text-xs font-mono text-sage bg-sage/10 px-2 py-1 rounded">
@@ -101,20 +91,24 @@ export function ProjectsKanban({ projects }: ProjectsKanbanProps) {
                   </span>
                 </div>
 
-                <h4 className="font-medium text-deep-700 mb-1">{project.service_type}</h4>
-                <p className="text-sm text-neutral-600 mb-3">{project.order?.email || project.email}</p>
+                <h4 className="font-medium text-deep-700 mb-1">
+                  {project.service_type}
+                </h4>
+
+                <p className="text-sm text-neutral-600 mb-3">
+                  {project.order?.email || 'No email'}
+                </p>
 
                 <div className="flex items-center justify-between pt-2 border-t border-mist/30">
                   <span className="text-xs text-neutral-500 truncate max-w-[120px]">
                     {project.order?.product?.title || 'Unknown Product'}
                   </span>
-                  <button 
+
+                  <button
                     onClick={() => router.push(`/admin/projects/${project.id}`)}
                     className="text-tefetra hover:text-tefetra-600"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    →
                   </button>
                 </div>
               </div>

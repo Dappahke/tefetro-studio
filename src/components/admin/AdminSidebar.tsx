@@ -23,6 +23,19 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
 
   const visibleNav = navItems.filter(item => item.roles.includes(userRole))
 
+  const isActive = (href: string) => {
+    if (href === '/admin') {
+      return pathname === '/admin'
+    }
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+
+  const handleSignOut = () => {
+    // Add your sign out logic here
+    // Example: await signOut() or router.push('/login')
+    console.log('Signing out...')
+  }
+
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-deep-800 text-canvas flex-col">
       {/* Logo */}
@@ -40,29 +53,25 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {visibleNav.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`
-                flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-                ${isActive 
-                  ? 'bg-tefetra text-deep font-semibold' 
-                  : 'text-mist hover:bg-deep-700 hover:text-canvas'
-                }
-              `}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <span>{item.label}</span>
-              {isActive && (
-                <span className="ml-auto w-2 h-2 bg-deep rounded-full" />
-              )}
-            </Link>
-          )
-        })}
+        {visibleNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`
+              flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+              ${isActive(item.href)
+                ? 'bg-tefetra text-deep font-semibold' 
+                : 'text-mist hover:bg-deep-700 hover:text-canvas'
+              }
+            `}
+          >
+            <span className="text-xl">{item.icon}</span>
+            <span>{item.label}</span>
+            {isActive(item.href) && (
+              <span className="ml-auto w-2 h-2 bg-deep rounded-full" />
+            )}
+          </Link>
+        ))}
       </nav>
 
       {/* Bottom Actions */}
@@ -74,7 +83,10 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           <span>🏠</span>
           <span>View Site</span>
         </Link>
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-alert-300 hover:bg-alert/10 transition-colors">
+        <button 
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-alert-300 hover:bg-alert/10 transition-colors"
+        >
           <span>🚪</span>
           <span>Sign Out</span>
         </button>

@@ -1,20 +1,8 @@
+'use client'
+
 import Link from 'next/link'
 import { PriceDisplayCompact } from '../products/PriceDisplayCompact'
-
-interface Project {
-  id: string
-  service_type: string
-  status: string
-  email: string
-  created_at: string
-  updated_at: string
-  order: {
-    id: string
-    email: string
-    total: number
-    product: { title: string }
-  }
-}
+import type { Project } from '@/types/project' // ✅ single source of truth
 
 interface ProjectsListViewProps {
   projects: Project[]
@@ -24,14 +12,18 @@ const statusColors: Record<string, string> = {
   pending: 'bg-tefetra/10 text-tefetra',
   contacted: 'bg-sage/10 text-sage',
   in_progress: 'bg-deep/10 text-deep-600',
+  review: 'bg-amber-100 text-amber-700',
   completed: 'bg-neutral-100 text-neutral-600',
+  cancelled: 'bg-red-100 text-red-600',
 }
 
 const statusLabels: Record<string, string> = {
   pending: 'Pending Review',
   contacted: 'Contacted',
   in_progress: 'In Progress',
+  review: 'Under Review',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 }
 
 export function ProjectsListView({ projects }: ProjectsListViewProps) {
@@ -53,6 +45,8 @@ export function ProjectsListView({ projects }: ProjectsListViewProps) {
     <div className="bg-white rounded-2xl border border-mist/30 overflow-hidden shadow-soft">
       <div className="overflow-x-auto">
         <table className="w-full">
+          
+          {/* HEADER */}
           <thead className="bg-canvas border-b border-mist/30">
             <tr>
               <th className="text-left py-4 px-6 font-semibold text-deep-700">Project</th>
@@ -63,41 +57,64 @@ export function ProjectsListView({ projects }: ProjectsListViewProps) {
               <th className="text-right py-4 px-6 font-semibold text-deep-700">Actions</th>
             </tr>
           </thead>
+
+          {/* BODY */}
           <tbody className="divide-y divide-mist/30">
             {projects.map((project) => (
               <tr key={project.id} className="hover:bg-canvas/50 transition-colors">
+                
+                {/* Project */}
                 <td className="py-4 px-6">
                   <div>
-                    <h4 className="font-medium text-deep-700">{project.service_type}</h4>
+                    <h4 className="font-medium text-deep-700">
+                      {project.service_type}
+                    </h4>
                     <p className="text-xs text-neutral-500">
                       {project.order?.product?.title || 'Unknown Product'}
                     </p>
                   </div>
                 </td>
+
+                {/* Client */}
                 <td className="py-4 px-6">
-                  <p className="text-sm text-neutral-600">{project.order?.email || project.email}</p>
+                  <p className="text-sm text-neutral-600">
+                    {project.order?.email || 'N/A'}
+                  </p>
                 </td>
+
+                {/* Status */}
                 <td className="py-4 px-6">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[project.status] || 'bg-neutral-100 text-neutral-600'}`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      statusColors[project.status] || 'bg-neutral-100 text-neutral-600'
+                    }`}
+                  >
                     {statusLabels[project.status] || project.status}
                   </span>
                 </td>
+
+                {/* Order Value */}
                 <td className="py-4 px-6">
                   <PriceDisplayCompact amountKES={project.order?.total || 0} />
                 </td>
+
+                {/* Date */}
                 <td className="py-4 px-6">
                   <p className="text-sm text-neutral-600">
-                    {new Date(project.updated_at || project.created_at).toLocaleDateString()}
+                    {new Date(project.created_at).toLocaleDateString()}
                   </p>
                 </td>
+
+                {/* Action */}
                 <td className="py-4 px-6 text-right">
-                  <Link 
+                  <Link
                     href={`/admin/projects/${project.id}`}
                     className="btn-ghost text-sm py-2 px-4"
                   >
                     View Details
                   </Link>
                 </td>
+
               </tr>
             ))}
           </tbody>
