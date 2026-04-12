@@ -73,11 +73,11 @@ export default function Footer() {
                   <span>hello@tefetro.studio</span>
                 </a>
                 <a 
-                  href="tel:+254700000000" 
+                  href="tel:+254791939235" 
                   className="flex items-center gap-3 text-gray-400 hover:text-[#F28C00] transition-colors group"
                 >
                   <Phone size={18} className="text-[#0F4C5C] group-hover:text-[#F28C00] transition-colors" />
-                  <span>+254 700 000 000</span>
+                  <span>+254 791 939 235</span>
                 </a>
                 <div className="flex items-center gap-3 text-gray-400">
                   <MapPin size={18} className="text-[#0F4C5C]" />

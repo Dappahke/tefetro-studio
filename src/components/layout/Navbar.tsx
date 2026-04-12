@@ -30,7 +30,7 @@ const menuNavItems = [
   { name: "Browse Plans", href: "/products" },
   { name: "Our Projects", href: "/projects" },
   { name: "Dashboard", href: "/dashboard" },
-  { name: "About Us", href: "/about" },
+  { name: "About Us", href: "/about-us" },
   { name: "Blog", href: "/blog" },
   { name: "Contact", href: "/contact" },
   { name: "FAQs", href: "/faqs" },
