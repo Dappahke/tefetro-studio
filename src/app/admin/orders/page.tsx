@@ -1,8 +1,13 @@
+// src/app/admin/orders/page.tsx
 import { verifyAdmin } from '@/lib/dal'
-import { fetchAllOrders } from '@/lib/dal'
+import { adminClient } from '@/lib/supabase/admin'
 import { OrdersTable } from '@/components/admin/OrdersTable'
 import { OrdersFilters } from '@/components/admin/OrdersFilters'
 import { ExportButton } from '@/components/admin/ExportButton'
+import { RealtimeOrders } from '@/components/admin/RealtimeOrders'
+import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 
 export default async function OrdersPage({
   searchParams,
@@ -17,55 +22,61 @@ export default async function OrdersPage({
     page?: string
   }
 }) {
-  await verifyAdmin()
-  
-  const orders = await fetchAllOrders()
-  
-  // Apply filters from searchParams
-  let filteredOrders = orders
-  
+  const session = await verifyAdmin()
+  if (!session.user) redirect('/login')
+
+  const page = Math.max(1, parseInt(searchParams.page || '1'))
+  const limit = 20
+  const offset = (page - 1) * limit
+
+  // Build query with server-side filtering
+  // FIXED: Use 'title' instead of 'name' for products table
+  let query = adminClient
+    .from('orders')
+    .select('*, profiles(name, email), products(title)', { count: 'exact' })
+
+  // Apply filters at database level
   if (searchParams.status) {
-    filteredOrders = filteredOrders.filter((o: any) => o.status === searchParams.status)
+    query = query.eq('status', searchParams.status)
   }
   
   if (searchParams.dateFrom) {
-    filteredOrders = filteredOrders.filter((o: any) => 
-      new Date(o.created_at!) >= new Date(searchParams.dateFrom as string)
-    )
+    query = query.gte('created_at', searchParams.dateFrom)
   }
   
   if (searchParams.dateTo) {
-    filteredOrders = filteredOrders.filter((o: any) => 
-      new Date(o.created_at!) <= new Date(searchParams.dateTo as string)
-    )
+    query = query.lte('created_at', searchParams.dateTo)
   }
   
   if (searchParams.minAmount) {
-    filteredOrders = filteredOrders.filter((o: any) => 
-      o.total >= parseInt(searchParams.minAmount as string)
-    )
+    query = query.gte('total', parseFloat(searchParams.minAmount))
   }
   
   if (searchParams.maxAmount) {
-    filteredOrders = filteredOrders.filter((o: any) => 
-      o.total <= parseInt(searchParams.maxAmount as string)
-    )
+    query = query.lte('total', parseFloat(searchParams.maxAmount))
   }
   
   if (searchParams.search) {
-    const searchLower = searchParams.search.toLowerCase()
-    filteredOrders = filteredOrders.filter((o: any) => 
-      o.email?.toLowerCase().includes(searchLower) ||
-      o.id.toLowerCase().includes(searchLower) ||
-      o.payment_ref?.toLowerCase().includes(searchLower)
+    query = query.or(`email.ilike.%${searchParams.search}%,payment_ref.ilike.%${searchParams.search}%`)
+  }
+
+  // Execute query with pagination
+  const { data: orders, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) {
+    console.error('Error fetching orders:', error)
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-bold text-rose-600 mb-2">Error loading orders</h2>
+        <p className="text-mist">{error.message}</p>
+      </div>
     )
   }
 
-  // Pagination
-  const page = parseInt(searchParams.page || '1')
-  const limit = 20
-  const totalPages = Math.ceil(filteredOrders.length / limit)
-  const paginatedOrders = filteredOrders.slice((page - 1) * limit, page * limit)
+  const totalOrders = count || 0
+  const totalPages = Math.ceil(totalOrders / limit)
 
   return (
     <div className="space-y-6">
@@ -74,24 +85,25 @@ export default async function OrdersPage({
         <div>
           <h1 className="text-2xl font-bold text-deep-700">Orders Management</h1>
           <p className="text-neutral-500 mt-1">
-            {filteredOrders.length} total orders
+            {totalOrders} total orders
           </p>
         </div>
-        <ExportButton orders={filteredOrders} />
+        <ExportButton orders={orders || []} />
       </div>
 
       {/* Filters */}
       <OrdersFilters 
         currentFilters={searchParams}
-        totalOrders={filteredOrders.length}
+        totalOrders={totalOrders}
       />
 
-      {/* Table */}
-      <OrdersTable 
-        orders={paginatedOrders}
+      {/* Real-time wrapper */}
+      <RealtimeOrders 
+        initialOrders={orders || []}
         currentPage={page}
         totalPages={totalPages}
-        totalOrders={filteredOrders.length}
+        totalOrders={totalOrders}
+        filters={searchParams}
       />
     </div>
   )

@@ -1,0 +1,135 @@
+/* src/app/admin/orders/[id]/print-styles.css */
+
+/* Print-specific styles */
+@media print {
+  /* Hide non-print elements */
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-header,
+  .print-title,
+  .print-footer,
+  .print-only-block {
+    display: block !important;
+  }
+
+  /* Reset backgrounds */
+  body {
+    background: white !important;
+  }
+
+  .print-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove shadows and borders for clean print */
+  .shadow-soft {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .bg-canvas,
+  .bg-tefetra\/5,
+  .bg-gradient-to-r {
+    background: white !important;
+  }
+
+  /* Print layout */
+  .print-layout {
+    display: block !important;
+  }
+
+  .print-content {
+    width: 100% !important;
+  }
+
+  /* Print text styles */
+  .print-text-lg {
+    font-size: 1.125rem !important;
+  }
+
+  .print-text-sm {
+    font-size: 0.875rem !important;
+  }
+
+  .print-text-xs {
+    font-size: 0.75rem !important;
+  }
+
+  .print-text-black {
+    color: #000 !important;
+  }
+
+  .print-text-gray {
+    color: #6b7280 !important;
+  }
+
+  /* Print badges */
+  .print-badge {
+    background: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Print sections */
+  .print-section {
+    margin-bottom: 1.5rem !important;
+    page-break-inside: avoid;
+  }
+
+  .print-header-row {
+    background: white !important;
+    border-bottom: 2px solid #e5e7eb !important;
+  }
+
+  .print-body {
+    padding: 1rem !important;
+  }
+
+  .print-row {
+    padding: 0.75rem !important;
+  }
+
+  .print-divide > * {
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .print-footer-row {
+    background: #f9fafb !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+
+  .print-price-box {
+    border-left: 1px solid #e5e7eb !important;
+    padding-left: 1rem !important;
+  }
+
+  .print-gap-1 {
+    gap: 0.25rem !important;
+  }
+
+  /* Ensure images print */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Page breaks */
+  .print-section {
+    page-break-inside: avoid;
+  }
+}
+
+/* Screen-only styles */
+@media screen {
+  .print-header,
+  .print-title,
+  .print-footer,
+  .print-only-block {
+    display: none !important;
+  }
+}

@@ -1,6 +1,6 @@
 // src/components/layout/Footer.tsx
 import Link from "next/link";
-import { Mail, Phone, MapPin, Instagram, Linkedin, Twitter } from "lucide-react";
+import { Mail, Phone, MapPin, Instagram, Linkedin, Twitter, ArrowUpRight } from "lucide-react";
 
 const footerLinks = {
   services: [
@@ -28,14 +28,14 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { name: "Instagram", icon: Instagram, href: "https://instagram.com/tefetrastudios" },
-  { name: "LinkedIn", icon: Linkedin, href: "https://linkedin.com/company/tefetra-studios" },
-  { name: "Twitter", icon: Twitter, href: "https://twitter.com/tefetrastudios" },
+  { name: "Instagram", icon: Instagram, href: "https://instagram.com/tefetrostudios" },
+  { name: "LinkedIn", icon: Linkedin, href: "https://linkedin.com/company/tefetro-studios" },
+  { name: "Twitter", icon: Twitter, href: "https://twitter.com/tefetrostudios" },
 ];
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 bg-cream-100 border-t border-cream-200">
+    <footer className="relative z-10 bg-[#1E1E1E] text-white">
       {/* Main Footer */}
       <div className="section">
         <div className="section-inner">
@@ -43,13 +43,21 @@ export default function Footer() {
             
             {/* Brand Column */}
             <div className="lg:col-span-2 space-y-6">
-              <Link href="/" className="inline-block">
-                <span className="text-2xl font-bold text-teal-500">
-                  Tefetra<span className="text-sage-400">Studios</span>
-                </span>
+              <Link href="/" className="inline-flex items-center gap-3 group">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#F28C00] to-[#0F4C5C] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <span className="text-white font-bold text-xl">T</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold text-white tracking-tight leading-none">
+                    Tefetro
+                  </span>
+                  <span className="text-xs text-[#F28C00] tracking-wider uppercase font-medium">
+                    Studios
+                  </span>
+                </div>
               </Link>
               
-              <p className="text-charcoal-400 leading-relaxed max-w-sm">
+              <p className="text-gray-400 leading-relaxed max-w-sm">
                 Africa's leading PropTech platform for architectural drawings, 
                 construction services, and building solutions. Building dreams, 
                 one plan at a time.
@@ -58,27 +66,27 @@ export default function Footer() {
               {/* Contact Info */}
               <div className="space-y-3">
                 <a 
-                  href="mailto:hello@tefetra.studio" 
-                  className="flex items-center gap-3 text-charcoal-500 hover:text-teal-500 transition-colors"
+                  href="mailto:hello@tefetro.studio" 
+                  className="flex items-center gap-3 text-gray-400 hover:text-[#F28C00] transition-colors group"
                 >
-                  <Mail size={18} className="text-sage-400" />
-                  <span>hello@tefetra.studio</span>
+                  <Mail size={18} className="text-[#0F4C5C] group-hover:text-[#F28C00] transition-colors" />
+                  <span>hello@tefetro.studio</span>
                 </a>
                 <a 
                   href="tel:+254700000000" 
-                  className="flex items-center gap-3 text-charcoal-500 hover:text-teal-500 transition-colors"
+                  className="flex items-center gap-3 text-gray-400 hover:text-[#F28C00] transition-colors group"
                 >
-                  <Phone size={18} className="text-sage-400" />
+                  <Phone size={18} className="text-[#0F4C5C] group-hover:text-[#F28C00] transition-colors" />
                   <span>+254 700 000 000</span>
                 </a>
-                <div className="flex items-center gap-3 text-charcoal-400">
-                  <MapPin size={18} className="text-sage-400" />
+                <div className="flex items-center gap-3 text-gray-400">
+                  <MapPin size={18} className="text-[#0F4C5C]" />
                   <span>Nairobi, Kenya</span>
                 </div>
               </div>
               
               {/* Social Links */}
-              <div className="flex items-center gap-4 pt-2">
+              <div className="flex items-center gap-3 pt-2">
                 {socialLinks.map((social) => {
                   const Icon = social.icon;
                   return (
@@ -87,7 +95,7 @@ export default function Footer() {
                       href={social.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2.5 rounded-full bg-cream-200 text-charcoal-400 hover:bg-teal-500 hover:text-cream-50 transition-all duration-300"
+                      className="p-3 rounded-full bg-white/5 text-gray-400 hover:bg-[#F28C00] hover:text-white transition-all duration-300"
                       aria-label={social.name}
                     >
                       <Icon size={18} />
@@ -99,7 +107,7 @@ export default function Footer() {
 
             {/* Services Links */}
             <div>
-              <h3 className="text-sm font-semibold text-teal-500 uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6">
                 Services
               </h3>
               <ul className="space-y-3">
@@ -107,9 +115,10 @@ export default function Footer() {
                   <li key={link.name}>
                     <Link 
                       href={link.href}
-                      className="text-charcoal-400 hover:text-teal-500 transition-colors"
+                      className="text-gray-400 hover:text-[#F28C00] transition-colors inline-flex items-center gap-1 group"
                     >
                       {link.name}
+                      <ArrowUpRight size={14} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </Link>
                   </li>
                 ))}
@@ -118,7 +127,7 @@ export default function Footer() {
 
             {/* Company Links */}
             <div>
-              <h3 className="text-sm font-semibold text-teal-500 uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6">
                 Company
               </h3>
               <ul className="space-y-3">
@@ -126,9 +135,10 @@ export default function Footer() {
                   <li key={link.name}>
                     <Link 
                       href={link.href}
-                      className="text-charcoal-400 hover:text-teal-500 transition-colors"
+                      className="text-gray-400 hover:text-[#F28C00] transition-colors inline-flex items-center gap-1 group"
                     >
                       {link.name}
+                      <ArrowUpRight size={14} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </Link>
                   </li>
                 ))}
@@ -137,7 +147,7 @@ export default function Footer() {
 
             {/* Support Links */}
             <div>
-              <h3 className="text-sm font-semibold text-teal-500 uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6">
                 Support
               </h3>
               <ul className="space-y-3">
@@ -145,9 +155,10 @@ export default function Footer() {
                   <li key={link.name}>
                     <Link 
                       href={link.href}
-                      className="text-charcoal-400 hover:text-teal-500 transition-colors"
+                      className="text-gray-400 hover:text-[#F28C00] transition-colors inline-flex items-center gap-1 group"
                     >
                       {link.name}
+                      <ArrowUpRight size={14} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </Link>
                   </li>
                 ))}
@@ -158,23 +169,23 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-cream-200">
+      <div className="border-t border-white/10">
         <div className="section py-6">
           <div className="section-inner flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-charcoal-400 text-center md:text-left">
-              © {new Date().getFullYear()} Tefetra Studios. A{" "}
-              <span className="text-teal-500 font-medium">Tefetra Limited</span> Company. 
+            <p className="text-sm text-gray-500 text-center md:text-left">
+              © {new Date().getFullYear()} Tefetro Studios. A{" "}
+              <span className="text-[#F28C00] font-medium">Tefetro Limited</span> Company. 
               All rights reserved.
             </p>
             
-            <div className="flex items-center gap-6 text-sm text-charcoal-400">
-              <Link href="/terms" className="hover:text-teal-500 transition-colors">
+            <div className="flex items-center gap-6 text-sm text-gray-500">
+              <Link href="/terms" className="hover:text-[#F28C00] transition-colors">
                 Terms
               </Link>
-              <Link href="/privacy" className="hover:text-teal-500 transition-colors">
+              <Link href="/privacy" className="hover:text-[#F28C00] transition-colors">
                 Privacy
               </Link>
-              <Link href="/sitemap" className="hover:text-teal-500 transition-colors">
+              <Link href="/sitemap" className="hover:text-[#F28C00] transition-colors">
                 Sitemap
               </Link>
             </div>

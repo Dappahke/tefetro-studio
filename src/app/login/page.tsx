@@ -23,7 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // 🔍 Check if user is admin and redirect accordingly
+  // 🔍 Check if user is admin/super_admin and redirect accordingly
   const handlePostLoginRedirect = async (userId: string) => {
     try {
       // Fetch user profile to check role
@@ -40,12 +40,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect based on role
-      if (profile?.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/dashboard");
-      }
+      // Redirect: admin OR super_admin → /admin, user → /dashboard
+      const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+      router.push(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       console.error("Redirect error:", err);
       router.push("/dashboard");

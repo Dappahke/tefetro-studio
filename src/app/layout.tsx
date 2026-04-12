@@ -3,8 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
+import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import AuthProvider from "@/components/providers/AuthProvider";
 
@@ -94,13 +93,13 @@ export const metadata: Metadata = {
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Tefetra Studios",
-  url: "https://tefetra.studio",
-  logo: "https://tefetra.studio/logo.svg",
+  name: "Tefetro Studios",
+  url: "https://tefetro.studio",
+  logo: "https://tefetro.studio/logo.svg",
 
   sameAs: [
-    "https://linkedin.com/company/tefetra-studios",
-    "https://instagram.com/tefetrastudios",
+    "https://linkedin.com/company/tefetro-studios",
+    "https://instagram.com/tefetrostudios",
   ],
 
   founder: [
@@ -160,22 +159,19 @@ export default function RootLayout({
             Skip to main content
           </a>
 
-          {/* Navbar */}
-          <Navbar />
-
-          {/* Main */}
-          <main
-            id="main-content"
-            className="relative z-10 flex-1 flex flex-col"
-            role="main"
-          >
-            <div className="content-layer flex-1 flex flex-col">
-              {children}
-            </div>
-          </main>
-
-          {/* Footer */}
-          <Footer />
+          {/* 🔥 LAYOUT WRAPPER - Handles conditional Navbar/Footer */}
+          <LayoutWrapper>
+            {/* Main */}
+            <main
+              id="main-content"
+              className="relative z-10 flex-1 flex flex-col"
+              role="main"
+            >
+              <div className="content-layer flex-1 flex flex-col">
+                {children}
+              </div>
+            </main>
+          </LayoutWrapper>
 
         </AuthProvider>
       </body>
