@@ -6,49 +6,26 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Home,
-  Grid3X3,
-  FolderKanban,
-  User,
-  Menu,
-  X,
-  ShoppingBag,
-  ChevronRight,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const mainNavItems = [
-  { name: "Home", href: "/", icon: Home },
-  { name: "Plans", href: "/products", icon: Grid3X3 },
-  { name: "Projects", href: "/projects", icon: FolderKanban },
-  { name: "Account", href: "/login", icon: User },
-];
-
-const menuNavItems = [
-  { name: "Home", href: "/" },
-  { name: "Browse Plans", href: "/products" },
-  { name: "Our Projects", href: "/projects" },
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "About Us", href: "/about-us" },
+// Navigation items - text only, no Home (logo goes to home)
+const navItems = [
+  { name: "Plans", href: "/products" },
+  { name: "Projects", href: "/projects" },
+  { name: "About", href: "/about" },
   { name: "Blog", href: "/blog" },
   { name: "Contact", href: "/contact" },
-  { name: "FAQs", href: "/faqs" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [isVisible, setIsVisible] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const heroThreshold = window.innerHeight * 0.4;
-
-      setIsVisible(scrollY > heroThreshold);
-      setScrolled(scrollY > 50);
+      setScrolled(window.scrollY > 50);
     };
 
     handleScroll();
@@ -56,78 +33,64 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Close mobile menu on route change
   useEffect(() => {
-    setIsMenuOpen(false);
+    setMobileMenuOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    document.body.style.overflow = isMenuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isMenuOpen]);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
 
+  const isHome = pathname === "/";
+
   return (
     <>
-      {/* Top Logo Bar - Appears on scroll */}
+      {/* Skip to main content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:bg-[#F28C00] focus:text-white focus:px-4 focus:py-2 focus:rounded-lg"
+      >
+        Skip to main content
+      </a>
+
+      {/* Desktop/Tablet: Floating Pill Navbar */}
       <motion.header
         initial={{ y: -100, opacity: 0 }}
-        animate={{
-          y: scrolled ? 0 : -100,
-          opacity: scrolled ? 1 : 0,
-        }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="fixed top-0 left-0 right-0 z-40"
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="fixed top-6 left-0 right-0 z-50 hidden md:flex justify-center px-4"
+        role="banner"
       >
-        <div className="mx-4 mt-4">
-          <div className="glass rounded-2xl px-6 py-3 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              {/* Logo */}
-              <Link href="/" className="flex items-center gap-3 group">
-                <div className="relative w-10 h-10 bg-gradient-to-br from-[#F28C00] to-[#0F4C5C] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-                  <span className="text-white font-bold text-lg">T</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-[#1E1E1E] tracking-tight leading-none">
-                    Tefetro
-                  </span>
-                  <span className="text-[10px] text-[#6B7280] tracking-wider uppercase">
-                    Studios
-                  </span>
-                </div>
-              </Link>
-
-              {/* Quick CTA */}
-              <Link
-                href="/products"
-                className="flex items-center gap-2 text-sm font-medium text-[#6B7280] hover:text-[#F28C00] transition-colors"
-              >
-                <ShoppingBag size={18} />
-                <span className="hidden sm:inline">Browse Plans</span>
-              </Link>
+        <nav 
+          className={cn(
+            "flex items-center gap-1 px-2 py-2 rounded-full transition-all duration-300",
+            "bg-[#FAF9F6]/90 backdrop-blur-md border border-[#E5E7EB]/50",
+            "shadow-lg shadow-[#0F4C5C]/5",
+            scrolled && "shadow-xl shadow-[#0F4C5C]/10"
+          )}
+          aria-label="Main navigation"
+        >
+          {/* Logo - inside the pill, goes to home */}
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 px-3 py-1 mr-2 border-r border-[#E5E7EB]"
+            aria-label="Tefetro Studios - Home"
+          >
+            <div className="relative w-8 h-8">
+              <Image
+                src="/images/tefetro-logo.png"
+                alt="Tefetro"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
-          </div>
-        </div>
-      </motion.header>
+          </Link>
 
-      {/* 🔥 SIGNATURE: Bottom Floating Pill Navbar */}
-      <motion.nav
-        initial={{ y: 100, opacity: 0 }}
-        animate={{
-          y: isVisible ? 0 : 100,
-          opacity: isVisible ? 1 : 0,
-        }}
-        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
-      >
-        <div className="glass rounded-full px-2 py-2 shadow-glass-lg flex items-center gap-1">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
+          {/* Nav Links - Text only, no Home button */}
+          {navItems.map((item) => {
             const active = isActive(item.href);
 
             return (
@@ -135,167 +98,125 @@ export default function Navbar() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "relative flex flex-col items-center justify-center px-5 py-2.5 rounded-full transition-all duration-300 group",
+                  "px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 whitespace-nowrap",
                   active
-                    ? "bg-[#F28C00] text-white shadow-lg"
-                    : "text-[#6B7280] hover:text-[#F28C00] hover:bg-[#F28C00]/10"
+                    ? "bg-[#F28C00] text-white shadow-md"
+                    : "text-[#1E1E1E] hover:text-[#F28C00] hover:bg-[#F28C00]/10"
                 )}
+                aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  size={20}
-                  strokeWidth={active ? 2.5 : 2}
-                  className={cn(
-                    "transition-transform duration-300",
-                    active ? "scale-110" : "group-hover:scale-110"
-                  )}
-                />
-                <span className="text-[10px] font-semibold mt-0.5">
-                  {item.name}
-                </span>
-
-                {/* Active indicator dot */}
-                {active && (
-                  <motion.span
-                    layoutId="navIndicator"
-                    className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white"
-                  />
-                )}
+                {item.name}
               </Link>
             );
           })}
+        </nav>
+      </motion.header>
 
-          {/* Divider */}
-          <div className="w-px h-8 bg-[#E5E7EB] mx-1" />
-
-          {/* Menu Button */}
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            className="flex flex-col items-center justify-center px-5 py-2.5 rounded-full text-[#6B7280] hover:text-[#F28C00] hover:bg-[#F28C00]/10 transition-all duration-300 group"
+      {/* Mobile: Compact Pill with Menu Button */}
+      <motion.header
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="fixed top-6 left-0 right-0 z-50 flex md:hidden justify-center px-4"
+        role="banner"
+      >
+        <nav 
+          className={cn(
+            "flex items-center gap-1 px-2 py-2 rounded-full transition-all duration-300",
+            "bg-[#FAF9F6]/90 backdrop-blur-md border border-[#E5E7EB]/50",
+            "shadow-lg shadow-[#0F4C5C]/5"
+          )}
+        >
+          {/* Logo - goes to home */}
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 px-2 py-1"
+            aria-label="Tefetro Studios - Home"
           >
-            <Menu size={20} />
-            <span className="text-[10px] font-semibold mt-0.5">Menu</span>
+            <div className="relative w-8 h-8">
+              <Image
+                src="/images/tefetro-logo.png"
+                alt="Tefetro"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+          </Link>
+
+          {/* Active Page Indicator (shows current page name, or "Home" if on home) */}
+          <div className="px-2 py-2">
+            <span className="text-sm font-medium text-[#F28C00]">
+              {isHome ? "Home" : navItems.find(item => isActive(item.href))?.name || "Menu"}
+            </span>
+          </div>
+
+          {/* Menu Toggle Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={cn(
+              "p-2 rounded-full transition-all duration-300",
+              mobileMenuOpen 
+                ? "bg-[#F28C00] text-white" 
+                : "text-[#1E1E1E] hover:bg-[#F28C00]/10"
+            )}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-        </div>
-      </motion.nav>
+        </nav>
 
-      {/* Full Screen Menu Overlay */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <>
-            {/* Backdrop */}
+        {/* Mobile Menu Dropdown */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 z-[60] bg-[#0F4C5C]/95 backdrop-blur-xl"
-              onClick={() => setIsMenuOpen(false)}
-            />
-
-            {/* Menu Panel */}
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed inset-0 z-[70] bg-[#FAF9F6] flex flex-col"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-full mt-2 left-4 right-4 bg-[#FAF9F6]/95 backdrop-blur-md rounded-2xl border border-[#E5E7EB]/50 shadow-xl p-2"
             >
-              <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-[#E5E7EB]">
-                  <Link href="/" className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#F28C00] to-[#0F4C5C] rounded-xl flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">T</span>
-                    </div>
-                    <span className="text-xl font-bold text-[#1E1E1E]">
-                      Tefetro
-                    </span>
-                  </Link>
+              {/* Home link in mobile menu (since logo is the primary home button) */}
+              <Link
+                href="/"
+                className={cn(
+                  "block px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300",
+                  isHome
+                    ? "bg-[#F28C00] text-white"
+                    : "text-[#1E1E1E] hover:bg-[#F28C00]/10 hover:text-[#F28C00]"
+                )}
+                aria-current={isHome ? "page" : undefined}
+              >
+                Home
+              </Link>
 
-                  <button
-                    onClick={() => setIsMenuOpen(false)}
-                    className="p-3 rounded-full text-[#6B7280] hover:bg-[#F28C00]/10 hover:text-[#F28C00] transition-colors"
+              {navItems.map((item) => {
+                const active = isActive(item.href);
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "block px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300",
+                      active
+                        ? "bg-[#F28C00] text-white"
+                        : "text-[#1E1E1E] hover:bg-[#F28C00]/10 hover:text-[#F28C00]"
+                    )}
+                    aria-current={active ? "page" : undefined}
                   >
-                    <X size={24} />
-                  </button>
-                </div>
-
-                {/* Navigation Links */}
-                <nav className="flex-1 overflow-y-auto py-8 px-6">
-                  <ul className="space-y-2">
-                    {menuNavItems.map((item, index) => {
-                      const active = isActive(item.href);
-
-                      return (
-                        <motion.li
-                          key={item.name}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <Link
-                            href={item.href}
-                            className={cn(
-                              "flex items-center justify-between py-4 px-5 text-lg font-semibold rounded-xl transition-all",
-                              active
-                                ? "bg-[#F28C00] text-white shadow-lg"
-                                : "text-[#1E1E1E] hover:bg-[#F28C00]/10 hover:text-[#F28C00]"
-                            )}
-                          >
-                            {item.name}
-                            <ChevronRight
-                              size={20}
-                              className={cn(
-                                "transition-transform",
-                                active ? "rotate-90" : ""
-                              )}
-                            />
-                          </Link>
-                        </motion.li>
-                      );
-                    })}
-                  </ul>
-                </nav>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-[#E5E7EB] space-y-6 bg-white/50">
-                  <div className="flex gap-6 text-sm text-[#6B7280]">
-                    <Link href="/terms" className="hover:text-[#F28C00]">
-                      Terms
-                    </Link>
-                    <Link href="/privacy" className="hover:text-[#F28C00]">
-                      Privacy
-                    </Link>
-                    <Link href="/sitemap" className="hover:text-[#F28C00]">
-                      Sitemap
-                    </Link>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Link
-                      href="/login"
-                      className="btn-ghost flex-1 justify-center py-3"
-                    >
-                      Log In
-                    </Link>
-                    <Link
-                      href="/login?signup=true"
-                      className="btn-primary flex-1 py-3"
-                    >
-                      Get Started
-                    </Link>
-                  </div>
-
-                  <p className="text-xs text-center text-[#6B7280]">
-                    © {new Date().getFullYear()} Tefetro Studios. All rights
-                    reserved.
-                  </p>
-                </div>
-              </div>
+                    {item.name}
+                  </Link>
+                );
+              })}
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </motion.header>
+
+      {/* Spacer to prevent content from going under navbar */}
+      <div className="h-28" aria-hidden="true" />
     </>
   );
 }
