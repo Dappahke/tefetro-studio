@@ -1,158 +1,127 @@
 // src/components/sections/ServicesSection.tsx
+"use client";
 
-import Link from "next/link";
-import {
-  ArrowRight,
-  FileText,
-  Palette,
-  TreePine,
-  Users,
-  Hammer,
-  Camera,
-} from "lucide-react";
+import { HardHat, MapPin, ClipboardCheck, FileCheck, Ruler, Calendar, ArrowRight } from "lucide-react";
 
 const services = [
   {
-    icon: FileText,
-    title: "BOQ Preparation",
-    description: "Accurate cost breakdowns to control your budget and eliminate surprises.",
+    icon: HardHat,
+    title: "Construction Supervision",
+    description: "Expert oversight ensuring quality and adherence to approved plans"
   },
   {
-    icon: Palette,
-    title: "Interior Design",
-    description: "Functional, modern interiors tailored to your lifestyle and space.",
+    icon: MapPin,
+    title: "Site Consultancy",
+    description: "Pre-construction site analysis and feasibility assessments"
   },
   {
-    icon: TreePine,
-    title: "Landscape Design",
-    description: "Outdoor environments designed to elevate your property value.",
+    icon: ClipboardCheck,
+    title: "Approval Processing",
+    description: "Navigate county approvals and regulatory requirements seamlessly"
   },
   {
-    icon: Users,
-    title: "Site Supervision",
-    description: "Professional oversight ensuring quality, timelines, and compliance.",
+    icon: FileCheck,
+    title: "EIA Reports",
+    description: "Environmental Impact Assessment reports for compliance"
   },
   {
-    icon: Hammer,
-    title: "Turnkey Construction",
-    description: "End-to-end building solutions — from foundation to final finish.",
+    icon: Ruler,
+    title: "Structural Drawings",
+    description: "Engineering plans for foundations, beams, and structural elements"
   },
   {
-    icon: Camera,
-    title: "3D Visualization",
-    description: "See your home before construction with realistic previews.",
-  },
+    icon: Calendar,
+    title: "Project Management",
+    description: "End-to-end coordination from groundbreaking to handover"
+  }
 ];
 
 export default function ServicesSection() {
   return (
-    <section className="section bg-canvas-subtle">
-      <div className="section-inner">
+    <section 
+      className="py-20 sm:py-28 bg-[#0f2a44] relative overflow-hidden"
+      aria-labelledby="services-heading"
+    >
+      {/* Subtle Pattern */}
+      <div className="absolute inset-0 opacity-5" aria-hidden="true">
+        <div 
+          className="absolute inset-0" 
+          style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px'
+          }} 
+        />
+      </div>
 
-        {/* HEADER */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <h2 className="text-3xl md:text-4xl font-bold text-deep mb-4">
-            From Design to Construction — We Handle Everything
-          </h2>
-          <p className="text-neutral-600">
-            Whether you’re starting with a plan or already have drawings, 
-            Tefetro Studio supports you at every stage — from budgeting and design 
-            to full construction and delivery.
-          </p>
-        </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+          {/* Left: Header */}
+          <div className="lg:sticky lg:top-28">
+            <p className="text-[#ff7f00] font-semibold text-sm tracking-wider uppercase mb-3">
+              Premium Services
+            </p>
+            <h2 
+              id="services-heading"
+              className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight"
+            >
+              Need Full Project Support?
+            </h2>
+            <p className="text-[#a0c4e8] text-lg mb-8 leading-relaxed">
+              These services are provided through direct consultation with our team of licensed architects and engineers.
+            </p>
 
-        {/* TRUST STRIP */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <div className="glass p-4 text-center rounded-lg">
-            <p className="text-lg font-semibold text-deep">100+</p>
-            <p className="text-xs text-neutral-500">Projects Supported</p>
-          </div>
-          <div className="glass p-4 text-center rounded-lg">
-            <p className="text-lg font-semibold text-deep">End-to-End</p>
-            <p className="text-xs text-neutral-500">Project Delivery</p>
-          </div>
-          <div className="glass p-4 text-center rounded-lg">
-            <p className="text-lg font-semibold text-deep">Cost Control</p>
-            <p className="text-xs text-neutral-500">BOQs & Planning</p>
-          </div>
-          <div className="glass p-4 text-center rounded-lg">
-            <p className="text-lg font-semibold text-deep">Kenya Focused</p>
-            <p className="text-xs text-neutral-500">Local Expertise</p>
-          </div>
-        </div>
+            <a 
+              href="/consultation"
+              className="group inline-flex items-center gap-3 bg-[#ff7f00] hover:bg-[#e66b00] text-white font-semibold px-8 py-4 rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/25 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-[#0f2a44]"
+              aria-label="Book a free consultation with our experts"
+            >
+              <Calendar className="w-5 h-5" aria-hidden="true" />
+              <span>Book Free Consultation</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            </a>
 
-        {/* SERVICES GRID */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service, index) => {
-            const Icon = service.icon;
+            <p className="mt-4 text-sm text-[#6b8cae]">
+              Response within 24 hours
+            </p>
+          </div>
 
-            return (
-              <div
+          {/* Right: Services Grid */}
+          <div 
+            className="grid sm:grid-cols-2 gap-4"
+            role="list"
+            aria-label="Available services"
+          >
+            {services.map((service, index) => (
+              <article 
                 key={index}
-                className="glass rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group"
+                className="group p-6 bg-[#1f4e79]/30 rounded-xl border border-[#1f4e79]/50 hover:bg-[#1f4e79]/50 hover:border-[#4f86c6]/50 transition-all duration-300"
+                role="listitem"
+                itemScope
+                itemType="https://schema.org/Service"
               >
-                {/* ICON */}
-                <div className="w-12 h-12 rounded-lg bg-deep/5 flex items-center justify-center mb-4 group-hover:bg-deep transition">
-                  <Icon
-                    size={24}
-                    className="text-deep group-hover:text-white transition"
-                  />
+                <meta itemProp="provider" content="Tefetro Limited" />
+                <div 
+                  className="w-10 h-10 bg-[#1f4e79] rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#ff7f00] transition-colors duration-300"
+                  aria-hidden="true"
+                >
+                  <service.icon className="w-5 h-5 text-white" />
                 </div>
-
-                {/* TITLE */}
-                <h3 className="text-lg font-semibold text-deep mb-2">
+                <h3 
+                  className="text-white font-semibold mb-2"
+                  itemProp="name"
+                >
                   {service.title}
                 </h3>
-
-                {/* DESCRIPTION */}
-                <p className="text-neutral-600 text-sm leading-relaxed">
+                <p 
+                  className="text-sm text-[#8fb8d9] leading-relaxed"
+                  itemProp="description"
+                >
                   {service.description}
                 </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* VALUE PROPOSITION BLOCK */}
-        <div className="mt-16 grid md:grid-cols-2 gap-8 items-center">
-
-          <div>
-            <h3 className="text-2xl font-semibold text-deep mb-4">
-              Already Have Drawings? We Can Still Help You Build
-            </h3>
-            <p className="text-neutral-600 mb-4">
-              Even if you didn’t buy your plans from us, Tefetro Studio can step in 
-              to guide, supervise, or fully execute your construction project.
-            </p>
-            <p className="text-neutral-600">
-              Our systems ensure quality control, cost efficiency, and smooth execution 
-              from start to finish.
-            </p>
+              </article>
+            ))}
           </div>
-
-          <div className="glass rounded-xl p-6">
-            <h4 className="font-semibold text-deep mb-3">
-              What You Get:
-            </h4>
-
-            <ul className="space-y-2 text-sm text-neutral-600">
-              <li>✔ Professional project guidance</li>
-              <li>✔ Transparent cost management</li>
-              <li>✔ Reliable construction execution</li>
-              <li>✔ Reduced risk and delays</li>
-            </ul>
-          </div>
-
         </div>
-
-        {/* CTA */}
-        <div className="text-center mt-14">
-          <Link href="/contact" className="btn-primary gap-2">
-            Start Your Project
-            <ArrowRight size={18} />
-          </Link>
-        </div>
-
       </div>
     </section>
   );

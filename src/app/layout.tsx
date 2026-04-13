@@ -25,11 +25,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Tefetro Studios | Architectural Plans & Construction Services",
+    default: "Tefetro Studios | Buy Ready-Made House Plans Online",
     template: "%s | Tefetro Studios",
   },
   description:
-    "Tefetro Studios is Africa's leading PropTech platform for architectural drawings, construction services, and building solutions. Founded by Noel Syambi and Nicholas Wafula Walwa.",
+    "Purchase complete architectural drawings instantly. Get BOQ cost estimates, interior design, and landscaping. Licensed Kenyan architects. NCA compliant plans. Founded by Noel Syambi and Nicholas Wafula Walwa.",
   keywords: [
     "architectural plans",
     "house plans Kenya",
@@ -40,12 +40,35 @@ export const metadata: Metadata = {
     "Tefetro Studios",
     "Noel Syambi",
     "Nicholas Wafula Wamalwa",
+    "buy house plans online",
+    "affordable architectural designs",
+    "architectural drawings",
+    "Interior design Kenya",
+    "landscaping design Kenya",
+    "licensed architects Kenya",
+    "NCA compliant plans",
+    "ready-made house plans",
+    "custom architectural plans",
+    "architectural design services",
+    "construction project management",
+    "architectural consultation",
+    "sustainable architecture Kenya",
+    "modern house plans Kenya",
+    "traditional house plans Kenya",
+    "contemporary house plans Kenya",
+    "affordable house plans Kenya",
+    "premium architectural plans Kenya",
+    "architectural plans for sale Kenya",
+    "house plan packages Kenya",
+    "architectural design packages Kenya",
+    "architectural services Kenya",
+    "construction plans",
   ],
   authors: [
     { name: "Noel Syambi", url: "https://tefetro.studio" },
     { name: "Nicholas Wafula Wamalwa" },
   ],
-  creator: "Noel Syambi",
+  creator: "Tefetro Studios",
   publisher: "Tefetro Limited",
   metadataBase: new URL("https://tefetro.studio"),
   alternates: { canonical: "/" },
@@ -55,9 +78,9 @@ export const metadata: Metadata = {
     locale: "en_KE",
     url: "https://tefetro.studio",
     siteName: "Tefetro Studios",
-    title: "Tefetro Studios | Build Your Dream Home",
+    title: "Tefetro Studios | Buy Ready-Made House Plans Online",
     description:
-      "Premium architectural plans and construction services in Kenya and across Africa.",
+      "Purchase complete architectural drawings instantly. Licensed Kenyan architects. NCA compliant.",
     images: [
       {
         url: "/og-image.jpg",
@@ -72,7 +95,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Tefetro Studios | Build Your Dream Home",
     description:
-      "Premium architectural plans and construction services.",
+      "Purchase complete architectural drawings instantly. Licensed Kenyan architects.",
     images: ["/og-image.jpg"],
   },
 
@@ -86,6 +109,9 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
+  },
+  verification: {
+    google: "your-google-verification-code",
   },
 };
 
