@@ -1,4 +1,5 @@
 import { getUserCurrencyInfo } from '@/lib/currency'
+import { cn } from '@/lib/utils'
 
 interface PriceDisplayProps {
   amountKES: number
@@ -13,21 +14,26 @@ export async function PriceDisplay({
   showOriginal = true,
   size = 'md'
 }: PriceDisplayProps) {
+  // Server-side currency detection and conversion
   const info = await getUserCurrencyInfo(amountKES)
 
+  // Size-based styling
   const sizeClasses = {
     sm: 'text-lg',
     md: 'text-2xl',
-    lg: 'text-3xl'
+    lg: 'text-3xl md:text-4xl'
   }
 
   return (
-    <div className={`inline-flex flex-col ${className}`}>
+    <div className={cn('inline-flex flex-col', className)}>
       {/* Main Price */}
-      <span className={`font-bold text-tefetra tracking-tight ${sizeClasses[size]}`}>
+      <span className={cn(
+        'font-bold text-tefetra tracking-tight',
+        sizeClasses[size]
+      )}>
         {info.formatted}
       </span>
-      
+
       {/* Original KES + Exchange Info */}
       {showOriginal && info.currency !== 'KES' && (
         <div className="flex items-center gap-2 mt-1 text-xs text-neutral-500">
@@ -45,7 +51,7 @@ export async function PriceDisplay({
           )}
         </div>
       )}
-      
+
       {/* Location Badge */}
       <span className="text-[10px] text-sage mt-0.5 flex items-center gap-1">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

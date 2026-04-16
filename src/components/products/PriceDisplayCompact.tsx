@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 interface PriceDisplayCompactProps {
   amountKES: number
   className?: string
+  showToggle?: boolean
 }
 
 type Currency = 'KES' | 'USD' | 'EUR' | 'GBP'
@@ -24,7 +25,11 @@ const SYMBOLS: Record<Currency, string> = {
   GBP: '£',
 }
 
-export function PriceDisplayCompact({ amountKES, className = '' }: PriceDisplayCompactProps) {
+export function PriceDisplayCompact({ 
+  amountKES, 
+  className = '',
+  showToggle = true 
+}: PriceDisplayCompactProps) {
   const [currency, setCurrency] = useState<Currency>('KES')
   const [detected, setDetected] = useState(true)
 
@@ -48,7 +53,7 @@ export function PriceDisplayCompact({ amountKES, className = '' }: PriceDisplayC
   }, [])
 
   const converted = amountKES * RATES[currency]
-  
+
   const format = (amount: number, curr: Currency): string => {
     if (curr === 'KES') {
       return `${SYMBOLS[curr]} ${Math.round(amount).toLocaleString()}`
@@ -62,23 +67,37 @@ export function PriceDisplayCompact({ amountKES, className = '' }: PriceDisplayC
     const next = currencies[(currentIndex + 1) % currencies.length]
     setCurrency(next)
     setDetected(false)
-    
+
     // Save preference
     document.cookie = `preferredCurrency=${next};path=/;max-age=${60*60*24*30}`
+  }
+
+  const content = (
+    <>
+      <span className="tabular-nums">{format(converted, currency)}</span>
+      {detected && showToggle && (
+        <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-sage/20 text-sage rounded-full align-top">
+          auto
+        </span>
+      )}
+    </>
+  )
+
+  if (!showToggle) {
+    return (
+      <span className={className}>
+        {content}
+      </span>
+    )
   }
 
   return (
     <button
       onClick={toggle}
-      className={`font-bold text-tefetra hover:text-tefetra-600 transition-colors ${className}`}
+      className={`hover:text-tefetra-600 transition-colors ${className}`}
       title={`Click to change currency${detected ? ' (auto-detected)' : ''}`}
     >
-      <span className="text-lg">{format(converted, currency)}</span>
-      {detected && (
-        <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-sage/20 text-sage rounded-full align-top">
-          auto
-        </span>
-      )}
+      {content}
     </button>
   )
 }
