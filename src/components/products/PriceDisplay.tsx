@@ -17,7 +17,7 @@ export async function PriceDisplay({
   // Server-side currency detection and conversion
   const info = await getUserCurrencyInfo(amountKES)
 
-  // Size-based styling
+  // Size-based styling using brand colors
   const sizeClasses = {
     sm: 'text-lg',
     md: 'text-2xl',
@@ -26,9 +26,9 @@ export async function PriceDisplay({
 
   return (
     <div className={cn('inline-flex flex-col', className)}>
-      {/* Main Price */}
+      {/* Main Price - Tefetra Orange for emphasis */}
       <span className={cn(
-        'font-bold text-tefetra tracking-tight',
+        'font-bold text-[#F28C00] tracking-tight',
         sizeClasses[size]
       )}>
         {info.formatted}
@@ -36,7 +36,7 @@ export async function PriceDisplay({
 
       {/* Original KES + Exchange Info */}
       {showOriginal && info.currency !== 'KES' && (
-        <div className="flex items-center gap-2 mt-1 text-xs text-neutral-500">
+        <div className="flex items-center gap-2 mt-1 text-xs text-[#1E1E1E]/50">
           <span>
             ≈ {new Intl.NumberFormat('en-KE', {
               style: 'currency',
@@ -45,15 +45,15 @@ export async function PriceDisplay({
             }).format(amountKES)}
           </span>
           {info.isEstimated && (
-            <span className="px-1.5 py-0.5 bg-mist/50 rounded text-[10px]">
+            <span className="px-1.5 py-0.5 bg-[#0F4C5C]/10 rounded text-[10px] text-[#0F4C5C]">
               estimated
             </span>
           )}
         </div>
       )}
 
-      {/* Location Badge */}
-      <span className="text-[10px] text-sage mt-0.5 flex items-center gap-1">
+      {/* Location Badge - Sage Green for trust */}
+      <span className="text-[10px] text-[#6faa99] mt-0.5 flex items-center gap-1">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />

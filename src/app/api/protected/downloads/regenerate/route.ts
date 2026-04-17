@@ -1,62 +1,63 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { adminClient } from '@/lib/supabase/admin'
 import { verifySession } from '@/lib/dal'
-import { RegenerateLinkSchema } from '@/lib/security/input-validation'
+import { adminClient } from '@/lib/supabase/admin'
 import { limiters, getIdentifier } from '@/lib/security/rate-limiter'
 import { audit } from '@/lib/security/audit-logger'
-import { sendReceiptEmail } from '@/lib/email'
-import { createHash, randomBytes } from 'crypto'
+import { createHash } from 'crypto'
 import { env } from '@/lib/env'
 
-// Generate new download token
+// Token generation function (same as in generate endpoint)
 function generateDownloadToken(orderId: string): string {
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+  const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
   const signature = createHash('sha256')
     .update(`${orderId}:${expiresAt}:${env.server.DOWNLOAD_SECRET}`)
     .digest('hex')
-  
   return `${orderId}:${expiresAt}:${signature}`
 }
 
 export async function POST(request: Request) {
   try {
-    // Rate limiting — strict for link regeneration
-    const identifier = getIdentifier(request)
-    const rateLimit = await limiters.regenerateLink.check(identifier)
-    if (!rateLimit.success) {
-      return NextResponse.json(
-        { error: 'Too many regeneration attempts. Contact support.' },
-        { status: 429 }
-      )
-    }
-
-    // Authentication required
     const session = await verifySession()
     if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    // Validate input
-    const body = await request.json()
-    const validation = RegenerateLinkSchema.safeParse(body)
-    if (!validation.success) {
+    // Rate limiting for regeneration
+    const identifier = getIdentifier(request)
+    const rateLimit = await limiters.regenerateLink.check(identifier)
+    
+    if (!rateLimit.success) {
+      await audit.securityEvent({
+        event: 'regenerate_rate_limited',
+        ip: identifier,
+        metadata: { 
+          retry_after: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+        }
+      })
+      
       return NextResponse.json(
-        { error: 'Invalid order ID' },
+        { error: 'Too many regeneration attempts. Please try again later.' },
+        { status: 429 }
+      )
+    }
+
+    const body = await request.json()
+    const { orderId } = body
+
+    if (!orderId) {
+      return NextResponse.json(
+        { error: 'Order ID required' },
         { status: 400 }
       )
     }
 
-    const { orderId } = validation.data
-
-    // Verify order ownership and existence
-    const supabase = await createClient()
-    const { data: order, error: orderError } = await supabase
+    // Verify order belongs to user
+    const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('*, product:products(file_path, title)')
+      .select('id, status, user_id, regeneration_count')
       .eq('id', orderId)
       .eq('user_id', session.user.id)
       .single()
@@ -68,67 +69,56 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate new signed URL for storage
-    const filePath = order.product?.file_path
-    if (!filePath) {
+    // Check if order is completed
+    if (order.status !== 'completed') {
       return NextResponse.json(
-        { error: 'Product file not available' },
-        { status: 404 }
+        { error: 'Order not completed yet' },
+        { status: 403 }
       )
     }
 
-    const { data: signedUrlData, error: urlError } = await adminClient.storage
-      .from('drawings')
-      .createSignedUrl(filePath, 60 * 60 * 24) // 24 hours
-
-    if (urlError || !signedUrlData) {
+    // Limit regeneration attempts (max 3 per order)
+    if (order.regeneration_count >= 3) {
       return NextResponse.json(
-        { error: 'Failed to generate download link' },
-        { status: 500 }
+        { error: 'Maximum regeneration attempts reached. Please contact support.' },
+        { status: 403 }
       )
     }
 
-    // Update order with new expiry
-    const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    // Generate new token
+    const newToken = generateDownloadToken(orderId)
+    
+    // Update regeneration count in database
     const { error: updateError } = await adminClient
       .from('orders')
       .update({
-        download_url: signedUrlData.signedUrl,
-        expires_at: newExpiresAt,
+        regeneration_count: (order.regeneration_count || 0) + 1,
+        last_regenerated_at: new Date().toISOString()
       })
       .eq('id', orderId)
 
     if (updateError) {
-      throw updateError
+      console.error('Failed to update regeneration count:', updateError)
     }
 
-    // Generate new token for future downloads
-    const newToken = generateDownloadToken(orderId)
-
-    // Log regeneration
-    await audit.linkRegenerated({
+    await audit.downloadLinkGenerated({
       userId: session.user.id,
-      orderId,
+      orderId: orderId,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     })
-
-    // Send new email
-    try {
-      await sendReceiptEmail(session.email, signedUrlData.signedUrl)
-    } catch (emailError) {
-      console.error('Regeneration email failed:', emailError)
-    }
 
     return NextResponse.json({
       success: true,
-      message: 'New download link generated and sent to your email',
       token: newToken,
-      expiresAt: newExpiresAt,
+      downloadUrl: `/download?token=${encodeURIComponent(newToken)}`,
+      expiresIn: 300,
+      remainingAttempts: 2 - (order.regeneration_count || 0)
     })
 
   } catch (err) {
-    console.error('Regenerate link error:', err)
+    console.error('Regeneration error:', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to regenerate download link' },
       { status: 500 }
     )
   }

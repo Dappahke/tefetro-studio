@@ -12,7 +12,7 @@ const PAYSTACK_VERIFY_URL = 'https://api.paystack.co/transaction/verify'
 
 export async function POST(request: Request) {
   try {
-    // Rate limiting
+    // Rate limiting - strict for order creation
     const identifier = getIdentifier(request)
     const rateLimit = await limiters.createOrder.check(identifier)
     if (!rateLimit.success) {
@@ -45,25 +45,62 @@ export async function POST(request: Request) {
     const { productId, paymentRef, addons } = validation.data
     const { user, email } = session
 
-    // Verify payment with Paystack
+    // CRITICAL: Verify payment with Paystack immediately
+    // This prevents fake payment references from being accepted
     const verifyRes = await fetch(`${PAYSTACK_VERIFY_URL}/${paymentRef}`, {
-      headers: { Authorization: `Bearer ${env.server.PAYSTACK_SECRET_KEY}` },
+      headers: { 
+        Authorization: `Bearer ${env.server.PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      cache: 'no-store' // Ensure fresh verification
     })
 
+    if (!verifyRes.ok) {
+      await audit.paymentFailed({ 
+        email, 
+        paymentRef, 
+        reason: `Paystack API error: ${verifyRes.status}` 
+      })
+      return NextResponse.json(
+        { success: false, error: 'Payment verification failed' },
+        { status: 400 }
+      )
+    }
+
     const verifyData = await verifyRes.json()
-    if (!verifyData?.data || verifyData.data.status !== 'success') {
-      await audit.paymentFailed({ email, paymentRef, reason: 'Payment verification failed' })
+    
+    // Strict verification checks
+    if (!verifyData?.status || !verifyData?.data || verifyData.data.status !== 'success') {
+      await audit.paymentFailed({ 
+        email, 
+        paymentRef, 
+        reason: `Payment not successful: ${verifyData?.data?.status || 'unknown'}` 
+      })
       return NextResponse.json(
         { success: false, error: 'Payment not successful' },
         { status: 400 }
       )
     }
 
-    // Fetch product
+    // Verify customer email matches (prevents using someone else's payment)
+    const paystackEmail = verifyData.data.customer?.email?.toLowerCase()
+    if (paystackEmail && paystackEmail !== email.toLowerCase()) {
+      await audit.paymentFailed({ 
+        email, 
+        paymentRef, 
+        reason: `Email mismatch: ${paystackEmail} vs ${email}` 
+      })
+      return NextResponse.json(
+        { success: false, error: 'Payment email mismatch' },
+        { status: 400 }
+      )
+    }
+
+    // Fetch product with file path
     const supabase = await createClient()
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('*')
+      .select('*, product_addons!inner(addon:addons(*))')
       .eq('id', productId)
       .single()
 
@@ -74,48 +111,86 @@ export async function POST(request: Request) {
       )
     }
 
-    // Fetch and validate addons (must be linked to this product)
+    // CRITICAL FIX: Validate addons belong to this product and calculate true price
     let addonData: any[] = []
+    let addonsTotal = 0
+    
     if (addons?.length > 0) {
-      const { data: linkedAddons, error: addonError } = await supabase
-        .from('product_addons')
-        .select('addon:addons(*)')
-        .eq('product_id', productId)
-        .in('addon_id', addons)
+      // Get valid addon IDs for this product from the joined data
+      const validAddonIds = product.product_addons?.map((pa: any) => pa.addon?.id) || []
+      
+      // Filter only addons that are actually linked to this product
+      const selectedAddons = product.product_addons?.filter((pa: any) => 
+        addons.includes(pa.addon?.id)
+      ) || []
 
-      if (addonError || !linkedAddons || linkedAddons.length !== addons.length) {
+      if (selectedAddons.length !== addons.length) {
+        // Someone tried to add an addon not linked to this product
+        await audit.paymentFailed({ 
+          email, 
+          paymentRef, 
+          reason: `Invalid addons selected: ${addons.filter((id: string) => 
+            !validAddonIds.includes(id)
+          ).join(', ')}` 
+        })
         return NextResponse.json(
           { success: false, error: 'Invalid addons selected for this product' },
           { status: 400 }
         )
       }
 
-      addonData = linkedAddons.map((la: any) => la.addon)
+      addonData = selectedAddons.map((pa: any) => pa.addon)
+      addonsTotal = addonData.reduce((sum, a) => sum + Number(a.price), 0)
     }
 
-    // Calculate true price
-    const addonsTotal = addonData.reduce((sum, a) => sum + Number(a.price), 0)
-    const expectedTotal = Number(product.price) + addonsTotal
+    // Calculate expected total
+    const basePrice = Number(product.price)
+    const expectedTotal = basePrice + addonsTotal
 
-    // Verify Paystack amount
-    if (Number(verifyData.data.amount) !== expectedTotal * 100) {
+    // CRITICAL: Verify Paystack amount matches our calculated total
+    // Amount from Paystack is in kobo (smallest currency unit)
+    const paystackAmount = Number(verifyData.data.amount)
+    const expectedAmountKobo = Math.round(expectedTotal * 100)
+    
+    if (paystackAmount !== expectedAmountKobo) {
       await audit.paymentFailed({ 
         email, 
         paymentRef, 
-        reason: `Amount mismatch: expected ${expectedTotal * 100}, got ${verifyData.data.amount}` 
+        reason: `Amount mismatch: expected ${expectedAmountKobo} kobo, got ${paystackAmount} kobo`,
+        metadata: { expected: expectedTotal, received: paystackAmount / 100 }
       })
       return NextResponse.json(
-        { success: false, error: 'Payment amount mismatch' },
+        { success: false, error: 'Payment amount verification failed' },
         { status: 400 }
       )
     }
 
-    // Generate download link
+    // Check for duplicate order (prevent double fulfillment)
+    const { data: existingOrder } = await adminClient
+      .from('orders')
+      .select('id, status')
+      .eq('payment_ref', paymentRef)
+      .single()
+
+    if (existingOrder) {
+      // Already processed - return existing order info with orderId in data
+      return NextResponse.json({
+        success: true,
+        message: 'Order already processed',
+        data: {
+          orderId: existingOrder.id,
+          status: existingOrder.status
+        }
+      })
+    }
+
+    // Generate download URL (24 hour expiry)
     const { data: signedUrlData, error: urlError } = await adminClient.storage
       .from('drawings')
       .createSignedUrl(product.file_path, 60 * 60 * 24)
 
     if (urlError || !signedUrlData) {
+      console.error('Download URL generation failed:', urlError)
       return NextResponse.json(
         { success: false, error: 'Failed to generate download link' },
         { status: 500 }
@@ -123,9 +198,9 @@ export async function POST(request: Request) {
     }
 
     const downloadUrl = signedUrlData.signedUrl
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
-    // Insert order
+    // Insert order with all details
     const { data: orderData, error: insertError } = await adminClient
       .from('orders')
       .insert({
@@ -135,44 +210,74 @@ export async function POST(request: Request) {
         total: expectedTotal,
         payment_ref: paymentRef,
         download_url: downloadUrl,
-        expires_at: expiresAt.toISOString(),
-        addons: addonData.map((a: any) => ({ id: a.id, name: a.name, price: a.price, type: a.type })),
+        expires_at: expiresAt,
+        status: 'completed',
+        addons: addonData.map((a: any) => ({ 
+          id: a.id, 
+          name: a.name, 
+          price: a.price, 
+          type: a.type 
+        })),
+        metadata: {
+          paystack_reference: paymentRef,
+          paystack_channel: verifyData.data.channel,
+          paystack_paid_at: verifyData.data.paid_at,
+          ip_address: identifier
+        }
       })
       .select()
       .single()
 
     if (insertError) {
-      if (insertError.message.toLowerCase().includes('duplicate')) {
-        return NextResponse.json({ success: true, message: 'Order already exists' })
-      }
-      throw insertError
+      console.error('Order insertion failed:', insertError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create order record' },
+        { status: 500 }
+      )
     }
 
-    // Handle service addons (create projects)
+    // Handle service addons (create project requests)
     const serviceAddons = addonData.filter((a: any) => a.type === 'service')
     if (serviceAddons.length > 0) {
-      const serviceTypes = serviceAddons.map((a: any) => a.id)
-
-      await adminClient.from('projects').insert({
+      const projectInserts = serviceAddons.map((addon: any) => ({
         user_id: user.id,
         order_id: orderData.id,
         email,
-        service_type: serviceTypes.join(', '),
+        service_type: addon.name, // Use addon name as service type
         status: 'pending',
-      })
+        description: `Service addon: ${addon.description || addon.name}`,
+        created_at: new Date().toISOString()
+      }))
 
-      try {
-        await notifyAdminOfProject(email, serviceTypes.join(', '))
-      } catch (err) {
-        console.error('Admin email failed:', err)
+      const { error: projectError } = await adminClient
+        .from('projects')
+        .insert(projectInserts)
+
+      if (projectError) {
+        console.error('Project creation failed:', projectError)
+        // Don't fail the order, just log it
+      } else {
+        // Notify admin of new service projects
+        try {
+          await notifyAdminOfProject(email, serviceAddons.map((a: any) => a.name).join(', '))
+        } catch (err) {
+          console.error('Admin notification failed:', err)
+        }
       }
     }
 
-    // Send receipt email
+    // Send receipt email with download link
     try {
-      await sendReceiptEmail(email, downloadUrl)
+      await sendReceiptEmail(email, {
+        orderId: orderData.id,
+        productTitle: product.title,
+        total: expectedTotal,
+        downloadUrl,
+        expiresAt
+      })
     } catch (emailError) {
-      console.error('Email failed:', emailError)
+      console.error('Receipt email failed:', emailError)
+      // Don't fail the order if email fails
     }
 
     // Audit log
@@ -182,6 +287,11 @@ export async function POST(request: Request) {
       orderId: orderData.id,
       amount: expectedTotal,
       paymentRef,
+      metadata: {
+        productId,
+        addonsCount: addonData.length,
+        channel: verifyData.data.channel
+      }
     })
 
     return NextResponse.json({
@@ -191,6 +301,7 @@ export async function POST(request: Request) {
         orderId: orderData.id,
         downloadUrl,
         expiresAt,
+        total: expectedTotal
       },
     })
 

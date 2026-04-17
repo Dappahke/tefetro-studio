@@ -76,7 +76,7 @@ export function PriceDisplayCompact({
     <>
       <span className="tabular-nums">{format(converted, currency)}</span>
       {detected && showToggle && (
-        <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-sage/20 text-sage rounded-full align-top">
+        <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-[#6faa99]/20 text-[#6faa99] rounded-full align-top font-medium">
           auto
         </span>
       )}
@@ -94,7 +94,7 @@ export function PriceDisplayCompact({
   return (
     <button
       onClick={toggle}
-      className={`hover:text-tefetra-600 transition-colors ${className}`}
+      className={`hover:text-[#F28C00] transition-colors ${className}`}
       title={`Click to change currency${detected ? ' (auto-detected)' : ''}`}
     >
       {content}

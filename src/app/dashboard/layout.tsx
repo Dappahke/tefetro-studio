@@ -13,9 +13,9 @@ import {
   User, 
   Menu,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
-// Use your existing client.ts which exports createBrowserClient
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -101,34 +101,34 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'order': return <ShoppingBag className="w-4 h-4 text-tefetra" />;
-      case 'message': return <MessageSquare className="w-4 h-4 text-deep" />;
-      case 'project': return <HardHat className="w-4 h-4 text-sage" />;
-      case 'action': return <Bell className="w-4 h-4 text-red-500" />;
-      default: return <Bell className="w-4 h-4 text-stone-400" />;
+      case 'order': return <ShoppingBag className="w-4 h-4 text-[#F28C00]" />;
+      case 'message': return <MessageSquare className="w-4 h-4 text-[#0F4C5C]" />;
+      case 'project': return <HardHat className="w-4 h-4 text-[#6faa99]" />;
+      case 'action': return <Bell className="w-4 h-4 text-[#F28C00]" />;
+      default: return <Bell className="w-4 h-4 text-[#1E1E1E]/40" />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-canvas flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-stone-200/60
+        fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white shadow-xl border-r border-[#0F4C5C]/10
         transform transition-transform duration-300 ease-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex flex-col
       `}>
-        {/* Logo */}
-        <div className="p-6 border-b border-stone-100">
-          <Link href="/" className="flex items-center gap-3">
+        {/* Logo Section */}
+        <div className="p-6 border-b border-[#0F4C5C]/10 bg-gradient-to-r from-[#0F4C5C]/5 to-transparent">
+          <Link href="/" className="flex items-center gap-3 group">
             <div className="relative w-12 h-12">
               <Image 
                 src="/images/tefetro-logo.png" 
@@ -139,14 +139,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-deep text-sm tracking-wider">TEFETRA</span>
-              <span className="text-xs text-stone-500">STUDIOS</span>
+              <span className="font-bold text-[#0F4C5C] text-lg tracking-wider">TEFETRA</span>
+              <span className="text-xs text-[#1E1E1E]/50">STUDIOS</span>
             </div>
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1.5">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
@@ -156,17 +156,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 href={item.href}
                 onClick={() => setIsSidebarOpen(false)}
                 className={`
-                  flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+                  flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                   ${isActive 
-                    ? 'bg-deep text-white shadow-lg shadow-deep/20' 
-                    : 'text-stone-600 hover:bg-stone-100 hover:text-deep'
+                    ? 'bg-[#0F4C5C] text-white shadow-lg shadow-[#0F4C5C]/20' 
+                    : 'text-[#1E1E1E]/70 hover:bg-[#0F4C5C]/5 hover:text-[#0F4C5C]'
                   }
                 `}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : ''}`} />
                 <span className="font-medium">{item.name}</span>
                 {item.name === 'Messages' && unreadCount > 0 && (
-                  <span className="ml-auto bg-tefetra text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  <span className="ml-auto bg-[#F28C00] text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
                     {unreadCount}
                   </span>
                 )}
@@ -176,31 +176,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-stone-100">
+        <div className="p-4 border-t border-[#0F4C5C]/10 bg-gradient-to-r from-transparent to-[#0F4C5C]/5">
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-stone-100 transition-colors"
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[#0F4C5C]/5 transition-all duration-200 group"
           >
-            <div className="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center">
-              <User className="w-5 h-5 text-sage" />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0F4C5C] to-[#6faa99] flex items-center justify-center shadow-md">
+              <User className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-stone-800">
+              <p className="text-sm font-semibold text-[#0F4C5C]">
                 {user?.email?.split('@')[0] || 'Client'}
               </p>
-              <p className="text-xs text-stone-500">{user?.email || 'client@example.com'}</p>
+              <p className="text-xs text-[#1E1E1E]/50 truncate">{user?.email || 'client@example.com'}</p>
             </div>
-            <ChevronRight className={`w-4 h-4 text-stone-400 transition-transform ${isProfileOpen ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-4 h-4 text-[#0F4C5C]/40 transition-transform duration-200 ${isProfileOpen ? 'rotate-90' : 'group-hover:translate-x-1'}`} />
           </button>
 
           {isProfileOpen && (
-            <div className="mt-2 px-3">
+            <div className="mt-2 px-3 animate-in fade-in slide-in-from-top-2 duration-200">
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-[#F28C00] hover:bg-[#F28C00]/10 rounded-lg transition-all duration-200 group"
               >
-                <LogOut className="w-4 h-4" />
-                Sign Out
+                <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                <span>Sign Out</span>
               </button>
             </div>
           )}
@@ -210,16 +210,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200/60 px-4 sm:px-6 lg:px-8 py-4">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#0F4C5C]/10 px-4 sm:px-6 lg:px-8 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-stone-100 text-stone-600"
+                className="lg:hidden p-2 rounded-lg hover:bg-[#0F4C5C]/5 text-[#0F4C5C] transition-colors"
               >
                 <Menu className="w-6 h-6" />
               </button>
-              <h1 className="text-xl font-bold text-deep hidden sm:block">
+              <h1 className="text-xl font-bold text-[#0F4C5C] hidden sm:block">
                 {navItems.find(item => pathname === item.href || pathname.startsWith(`${item.href}/`))?.name || 'Dashboard'}
               </h1>
             </div>
@@ -229,11 +229,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="relative">
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                  className="relative p-2 rounded-xl hover:bg-stone-100 text-stone-600 transition-colors"
+                  className="relative p-2 rounded-xl hover:bg-[#0F4C5C]/5 text-[#0F4C5C] transition-all duration-200 hover:scale-105"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-tefetra rounded-full animate-pulse" />
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#F28C00] rounded-full animate-pulse ring-2 ring-white" />
                   )}
                 </button>
 
@@ -244,44 +244,54 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       className="fixed inset-0 z-40"
                       onClick={() => setIsNotificationsOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-stone-200 z-50 overflow-hidden">
-                      <div className="p-4 border-b border-stone-100 flex items-center justify-between">
-                        <h3 className="font-semibold text-deep">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <button 
-                            onClick={markAllAsRead}
-                            className="text-xs text-tefetra hover:text-tefetra-600 font-medium"
-                          >
-                            Mark all read
-                          </button>
-                        )}
+                    <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-[#0F4C5C]/10 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="p-4 border-b border-[#0F4C5C]/10 bg-gradient-to-r from-[#0F4C5C]/5 to-transparent">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-[#0F4C5C] flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-[#F28C00]" />
+                            Notifications
+                          </h3>
+                          {unreadCount > 0 && (
+                            <button 
+                              onClick={markAllAsRead}
+                              className="text-xs text-[#F28C00] hover:text-[#F28C00]/80 font-medium transition-colors"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="max-h-96 overflow-y-auto">
+                      <div className="max-h-96 overflow-y-auto divide-y divide-[#0F4C5C]/5">
                         {notifications.map((notif) => (
                           <Link
                             key={notif.id}
                             href={notif.link || '#'}
                             onClick={() => setIsNotificationsOpen(false)}
-                            className={`flex items-start gap-3 p-4 hover:bg-stone-50 transition-colors border-b border-stone-50 last:border-0 ${!notif.read ? 'bg-tefetra/5' : ''}`}
+                            className={`
+                              flex items-start gap-3 p-4 hover:bg-[#FAF9F6] transition-all duration-200
+                              ${!notif.read ? 'bg-[#F28C00]/5 border-l-4 border-l-[#F28C00]' : ''}
+                            `}
                           >
-                            <div className="mt-0.5">{getNotificationIcon(notif.type)}</div>
+                            <div className="mt-0.5 p-1.5 rounded-lg bg-white shadow-sm">
+                              {getNotificationIcon(notif.type)}
+                            </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium ${!notif.read ? 'text-deep' : 'text-stone-700'}`}>
+                              <p className={`text-sm font-medium ${!notif.read ? 'text-[#0F4C5C]' : 'text-[#1E1E1E]/70'}`}>
                                 {notif.title}
                               </p>
-                              <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{notif.description}</p>
-                              <p className="text-xs text-stone-400 mt-1">{notif.timestamp}</p>
+                              <p className="text-xs text-[#1E1E1E]/50 mt-0.5 line-clamp-2">{notif.description}</p>
+                              <p className="text-xs text-[#1E1E1E]/40 mt-1">{notif.timestamp}</p>
                             </div>
                             {!notif.read && (
-                              <span className="w-2 h-2 bg-tefetra rounded-full mt-1.5 flex-shrink-0" />
+                              <span className="w-2 h-2 bg-[#F28C00] rounded-full mt-1.5 flex-shrink-0 animate-pulse" />
                             )}
                           </Link>
                         ))}
                       </div>
-                      <div className="p-3 border-t border-stone-100 bg-stone-50">
+                      <div className="p-3 border-t border-[#0F4C5C]/10 bg-[#FAF9F6]">
                         <Link 
                           href="/dashboard/notifications"
-                          className="block text-center text-sm text-stone-600 hover:text-deep font-medium"
+                          className="block text-center text-sm text-[#0F4C5C] hover:text-[#F28C00] font-medium transition-colors"
                         >
                           View all notifications
                         </Link>
@@ -301,6 +311,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Mobile Sidebar Close Button */}
+      {isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed top-4 right-4 z-50 lg:hidden p-2 bg-white rounded-full shadow-lg border border-[#0F4C5C]/10"
+        >
+          <X className="w-5 h-5 text-[#0F4C5C]" />
+        </button>
+      )}
     </div>
   );
 }

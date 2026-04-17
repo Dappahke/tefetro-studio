@@ -7,6 +7,14 @@ export type AuditEvent =
   | 'download_link_generated'
   | 'download_link_expired'
   | 'download_completed'
+  | 'download_rate_limited'
+  | 'download_processing_error'
+  | 'invalid_download_token'
+  | 'unauthenticated_download_attempt'
+  | 'unauthorized_download_attempt'
+  | 'download_attempt_on_incomplete_order'
+  | 'download_attempt_on_expired_order'
+  | 'download_missing_file'
   | 'project_created'
   | 'project_status_updated'
   | 'order_created'
@@ -62,20 +70,20 @@ export async function logAuditEvent(entry: Omit<AuditLogEntry, 'timestamp'>) {
 
 // Convenience helpers for common events
 export const audit = {
-  paymentSuccess: (data: { userId: string; email: string; orderId: string; amount: number; paymentRef: string }) => 
+  paymentSuccess: (data: { userId: string; email: string; orderId: string; amount: number; paymentRef: string; metadata?: Record<string, any> }) => 
     logAuditEvent({
       event: 'payment_success',
       userId: data.userId,
       email: data.email,
       orderId: data.orderId,
-      metadata: { amount: data.amount, paymentRef: data.paymentRef },
+      metadata: { amount: data.amount, paymentRef: data.paymentRef, ...data.metadata },
     }),
 
-  paymentFailed: (data: { email: string; paymentRef: string; reason: string }) =>
+  paymentFailed: (data: { email: string; paymentRef: string; reason: string; metadata?: Record<string, any> }) =>
     logAuditEvent({
       event: 'payment_failed',
       email: data.email,
-      metadata: { paymentRef: data.paymentRef, reason: data.reason },
+      metadata: { paymentRef: data.paymentRef, reason: data.reason, ...data.metadata },
     }),
 
   downloadLinkGenerated: (data: { userId: string; orderId: string; expiresAt: string }) =>
@@ -86,12 +94,51 @@ export const audit = {
       metadata: { expiresAt: data.expiresAt },
     }),
 
-  downloadCompleted: (data: { userId: string; orderId: string; ip: string }) =>
+  downloadCompleted: (data: { 
+    userId: string; 
+    email?: string;
+    orderId: string; 
+    productId?: string;
+    ip: string; 
+    userAgent?: string | null;
+    processingTimeMs?: number;
+  }) =>
     logAuditEvent({
       event: 'download_completed',
       userId: data.userId,
+      email: data.email,
+      orderId: data.orderId,
+      productId: data.productId,
+      ip: data.ip,
+      userAgent: data.userAgent || undefined,
+      metadata: { processingTimeMs: data.processingTimeMs },
+    }),
+
+  downloadLinkExpired: (data: { userId?: string; orderId: string; ip?: string }) =>
+    logAuditEvent({
+      event: 'download_link_expired',
+      userId: data.userId,
       orderId: data.orderId,
       ip: data.ip,
+    }),
+
+  // Security events for download endpoint
+  securityEvent: (data: { 
+    event: string; 
+    ip?: string; 
+    userId?: string; 
+    orderId?: string; 
+    productId?: string; 
+    metadata?: Record<string, any>;
+    error?: string;
+  }) => 
+    logAuditEvent({
+      event: data.event as AuditEvent,
+      userId: data.userId,
+      orderId: data.orderId,
+      productId: data.productId,
+      ip: data.ip,
+      metadata: { ...data.metadata, error: data.error },
     }),
 
   projectCreated: (data: { userId: string; email: string; projectId: string; serviceType: string }) =>
@@ -142,4 +189,23 @@ export const audit = {
       productId: data.productId,
       metadata: { title: data.title },
     }),
+  // Add this to the audit object
+webhookReceived: (data: { 
+  event: string; 
+  reference: string; 
+  amount: number; 
+  email?: string;
+  metadata?: Record<string, any>;
+}) =>
+  logAuditEvent({
+    event: 'payment_success', // Reuse existing event type
+    metadata: {
+      source: 'webhook',
+      webhook_event: data.event,
+      paymentRef: data.reference,
+      amount: data.amount,
+      email: data.email,
+      ...data.metadata
+    }
+  }),
 }

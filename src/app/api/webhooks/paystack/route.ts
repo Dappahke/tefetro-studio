@@ -1,130 +1,119 @@
 import { NextResponse } from 'next/server'
-import { adminClient } from '@/lib/supabase/admin'
-import { PaystackWebhookSchema } from '@/lib/security/input-validation'
-import { audit } from '@/lib/security/audit-logger'
+import { headers } from 'next/headers'
 import { env } from '@/lib/env'
-import { sendReceiptEmail } from '@/lib/email'
-import { createHash } from 'crypto'
-import { logAuditEvent } from '@/lib/security/audit-logger'
+import { adminClient } from '@/lib/supabase/admin'
+import { audit } from '@/lib/security/audit-logger'
+import crypto from 'crypto'
 
 // Verify Paystack webhook signature
-function verifyPaystackSignature(body: string, signature: string): boolean {
-  const hash = createHash('sha512')
-    .update(body + env.server.PAYSTACK_SECRET_KEY)
+function verifyWebhookSignature(payload: string, signature: string): boolean {
+  const hash = crypto
+    .createHmac('sha512', env.server.PAYSTACK_SECRET_KEY)
+    .update(payload)
     .digest('hex')
   
   return hash === signature
 }
 
-export const dynamic = 'force-dynamic' // ✅ App Router replacement
-
 export async function POST(request: Request) {
   try {
-    // Get raw body for signature verification
-    const body = await request.text()
-    const signature = request.headers.get('x-paystack-signature')
-
+    const headersList = await headers()
+    const signature = headersList.get('x-paystack-signature')
+    
     if (!signature) {
-      return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
-    }
-
-    // Verify webhook is from Paystack
-    if (!verifyPaystackSignature(body, signature)) {
-      await logAuditEvent({
-        event: 'payment_failed',
-        metadata: { reason: 'Invalid webhook signature' },
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-      })
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-
-    // Parse and validate payload
-    const payload = JSON.parse(body)
-    const validation = PaystackWebhookSchema.safeParse(payload)
-
-    if (!validation.success) {
+      console.error('No Paystack signature header')
       return NextResponse.json(
-        { error: 'Invalid payload' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
-    const { event, data } = validation.data
-
-    // Only handle successful charge events
-    if (event !== 'charge.success') {
-      return NextResponse.json({ received: true }, { status: 200 })
+    // Get raw body for signature verification
+    const rawBody = await request.text()
+    
+    // Verify webhook signature
+    if (!verifyWebhookSignature(rawBody, signature)) {
+      console.error('Invalid webhook signature')
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
-    const { reference, amount, customer } = data
+    const body = JSON.parse(rawBody)
+    const { event, data } = body
 
-    // Check for duplicate (idempotency)
-    const { data: existingOrder } = await adminClient
-      .from('orders')
-      .select('id')
-      .eq('payment_ref', reference)
-      .single()
+    console.log('Paystack webhook received:', { event, reference: data?.reference })
 
-    if (existingOrder) {
-      // Already processed
-      return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
-    }
+    // Handle different event types
+    switch (event) {
+      case 'charge.success':
+        // Payment was successful
+        const { reference, amount, customer, metadata } = data
+        
+        // Check if order already exists
+        const { data: existingOrder } = await adminClient
+          .from('orders')
+          .select('id')
+          .eq('payment_ref', reference)
+          .single()
 
-    // Find pending order by payment reference (if created by frontend)
-    // Or create new order if frontend failed
-    const { data: pendingOrder } = await adminClient
-      .from('orders')
-      .select('*')
-      .eq('payment_ref', reference)
-      .eq('status', 'pending')
-      .single()
+        if (existingOrder) {
+          console.log('Order already processed:', reference)
+          return NextResponse.json({ received: true })
+        }
 
-    if (pendingOrder) {
-      // Update to completed
-      const { error: updateError } = await adminClient
-        .from('orders')
-        .update({
-          status: 'completed',
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        })
-        .eq('id', pendingOrder.id)
+        // Create order from webhook
+        const { error: insertError } = await adminClient
+          .from('orders')
+          .insert({
+            payment_ref: reference,
+            amount: amount / 100, // Convert from kobo
+            customer_email: customer.email,
+            status: 'completed',
+            metadata: metadata || {},
+            created_at: new Date().toISOString()
+          })
 
-      if (updateError) throw updateError
+        if (insertError) {
+          console.error('Failed to create order from webhook:', insertError)
+          return NextResponse.json(
+            { error: 'Failed to process order' },
+            { status: 500 }
+          )
+        }
 
-      await audit.paymentSuccess({
-        userId: pendingOrder.user_id,
-        email: pendingOrder.email,
-        orderId: pendingOrder.id,
-        amount: amount / 100,
-        paymentRef: reference,
-      })
-
-      // Resend email (backup)
-      try {
-        await sendReceiptEmail(pendingOrder.email, pendingOrder.download_url)
-      } catch (emailError) {
-        console.error('Webhook email failed:', emailError)
-      }
-    } else {
-      // No pending order found — frontend may have failed
-      // Log for manual reconciliation
-      await logAuditEvent({
-        event: 'payment_success',
-        metadata: {
-          paymentRef: reference,
-          amount: amount / 100,
+        // Log payment success (without webhookReceived)
+        await audit.paymentSuccess({
+          userId: metadata?.user_id || 'unknown',
           email: customer.email,
-          note: 'No pending order found — requires manual reconciliation',
-        },
-      })
+          orderId: metadata?.order_id || 'unknown',
+          amount: amount / 100,
+          paymentRef: reference,
+          metadata: { source: 'webhook', ...metadata }
+        })
+
+        console.log('Order created from webhook:', reference)
+        break
+
+      case 'charge.dispute.create':
+        console.log('Dispute created:', data.reference)
+        break
+
+      case 'charge.dispute.resolve':
+        console.log('Dispute resolved:', data.reference)
+        break
+
+      default:
+        console.log('Unhandled webhook event:', event)
     }
 
-    return NextResponse.json({ received: true }, { status: 200 })
+    return NextResponse.json({ received: true })
 
   } catch (err) {
-    console.error('Paystack webhook error:', err)
+    console.error('Webhook processing error:', err)
     return NextResponse.json(
-      { error: 'Webhook processing failed' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

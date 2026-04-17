@@ -13,11 +13,13 @@ export function PriceDisplaySkeleton({ size = 'md' }: PriceDisplaySkeletonProps)
 
   return (
     <div className="inline-flex flex-col space-y-2">
+      {/* Main price skeleton - using Deep Teal opacity for brand consistency */}
       <div className={cn(
-        'bg-mist/50 rounded animate-pulse',
+        'bg-[#0F4C5C]/10 rounded animate-pulse',
         sizeClasses[size]
       )} />
-      <div className="h-3 w-24 bg-mist/30 rounded animate-pulse" />
+      {/* Secondary line skeleton */}
+      <div className="h-3 w-24 bg-[#0F4C5C]/5 rounded animate-pulse" />
     </div>
   )
 }

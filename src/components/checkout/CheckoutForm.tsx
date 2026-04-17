@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Addon {
   id: string
   name: string
   price: number
-  type: string
+  type: 'drawing' | 'service'
 }
 
 interface CheckoutFormProps {
@@ -16,6 +16,15 @@ interface CheckoutFormProps {
   total: number
   selectedAddons: Addon[]
   userEmail: string
+}
+
+// Paystack callback response type
+interface PaystackResponse {
+  reference: string
+  status: 'success' | 'failed' | 'abandoned'
+  trans: string
+  transaction: string
+  message: string
 }
 
 declare global {
@@ -27,7 +36,8 @@ declare global {
         amount: number
         currency: string
         ref: string
-        callback: (response: { reference: string }) => void
+        metadata?: Record<string, any>
+        callback: (response: PaystackResponse) => void
         onClose: () => void
       }) => {
         openIframe: () => void
@@ -47,10 +57,13 @@ export function CheckoutForm({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paystackReady, setPaystackReady] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const MAX_RETRIES = 3
 
-  // Load Paystack script
+  // Load Paystack script with error handling
   useEffect(() => {
     if (typeof window === 'undefined') return
+    
     if (window.PaystackPop) {
       setPaystackReady(true)
       return
@@ -59,16 +72,92 @@ export function CheckoutForm({
     const script = document.createElement('script')
     script.src = 'https://js.paystack.co/v1/inline.js'
     script.async = true
-    script.onload = () => setPaystackReady(true)
-    script.onerror = () => setError('Failed to load payment system')
+    script.onload = () => {
+      console.log('Paystack SDK loaded')
+      setPaystackReady(true)
+    }
+    script.onerror = () => {
+      console.error('Failed to load Paystack SDK')
+      setError('Failed to load payment system. Please refresh the page.')
+    }
 
     document.body.appendChild(script)
 
     return () => {
-      document.body.removeChild(script)
+      if (script.parentNode) {
+        document.body.removeChild(script)
+      }
     }
   }, [])
 
+  // Generate unique reference with timestamp and random component
+  const generateReference = useCallback(() => {
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+    return `TEF-${timestamp}-${random}`
+  }, [])
+
+  // Verify payment with backend API
+  const verifyPaymentWithBackend = async (paymentRef: string) => {
+    try {
+      const res = await fetch('/api/protected/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId,
+          paymentRef,
+          addons: selectedAddons.map(a => a.id),
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error('Too many attempts. Please wait a moment.')
+        }
+        if (res.status === 400 && data.error?.includes('already exists')) {
+          // Redirect to success page with order info
+          router.push(`/checkout/success?order=${data.data.orderId}`)
+          return
+        }
+        
+        throw new Error(data.error || 'Order creation failed')
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Payment verification failed')
+      }
+
+      // Redirect to success page with the order ID
+      router.push(`/checkout/success?order=${data.data.orderId}`)
+
+    } catch (err) {
+      console.error('Payment verification error:', err)
+      
+      if (retryCount < MAX_RETRIES && err instanceof TypeError) {
+        setRetryCount(prev => prev + 1)
+        setError(`Connection issue. Retrying... (${retryCount + 1}/${MAX_RETRIES})`)
+        
+        setTimeout(() => {
+          verifyPaymentWithBackend(paymentRef)
+        }, Math.pow(2, retryCount) * 1000)
+        
+        return
+      }
+
+      setError(err instanceof Error ? err.message : 'Payment verification failed')
+      setIsLoading(false)
+      
+      if (err instanceof Error && err.message.includes('verification')) {
+        setError(`${err.message}. Don't worry - if your payment was successful, you'll receive an email receipt shortly.`)
+      }
+    }
+  }
+
+  // Handle payment completion
   const handlePayment = async () => {
     setError(null)
     setIsLoading(true)
@@ -76,59 +165,66 @@ export function CheckoutForm({
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
 
     if (!publicKey) {
-      setError('Payment system not configured')
+      setError('Payment system not configured. Please contact support.')
       setIsLoading(false)
       return
     }
 
     if (!paystackReady) {
-      setError('Payment system loading... please wait')
+      setError('Payment system still loading... Please wait a moment and try again.')
       setIsLoading(false)
       return
     }
 
-    // Generate unique reference
-    const reference = `TEF-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    // Validate amount (must be at least 100 kobo / 1 KES)
+    if (total < 1) {
+      setError('Invalid order amount')
+      setIsLoading(false)
+      return
+    }
+
+    const reference = generateReference()
+
+    // Define callback as a regular function (not async) to avoid Paystack validation issues
+    const paymentCallback = (response: PaystackResponse) => {
+      console.log('Paystack callback received:', response)
+      
+      if (response.status !== 'success') {
+        setError(`Payment ${response.status}. Please try again.`)
+        setIsLoading(false)
+        return
+      }
+
+      verifyPaymentWithBackend(response.reference)
+    }
 
     const handler = window.PaystackPop.setup({
       key: publicKey,
       email: userEmail,
-      amount: Math.round(total * 100), // Convert to smallest currency unit (kobo/cents)
-      currency: 'KES', // Paystack primarily uses KES for Kenya, handles conversion
+      amount: Math.round(total * 100), // Convert to kobo
+      currency: 'KES',
       ref: reference,
-
-      callback: async (response) => {
-        try {
-          // Call our secure API
-          const res = await fetch('/api/protected/orders', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              productId,
-              paymentRef: response.reference,
-              addons: selectedAddons.map(a => a.id),
-            }),
-          })
-
-          const data = await res.json()
-
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Order creation failed')
+      metadata: {
+        product_id: productId,
+        product_title: productTitle,
+        addons_count: selectedAddons.length,
+        custom_fields: [
+          {
+            display_name: "Product",
+            variable_name: "product_title",
+            value: productTitle
+          },
+          {
+            display_name: "Addons",
+            variable_name: "addons",
+            value: selectedAddons.map(a => a.name).join(', ') || 'None'
           }
-
-          // Redirect to success page
-          router.push(`/dashboard?order=${data.data.orderId}&success=true`)
-
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Payment verification failed')
-          setIsLoading(false)
-        }
+        ]
       },
-
+      callback: paymentCallback,
       onClose: () => {
         setIsLoading(false)
+        setError('Payment window closed. If you completed payment, check your email or dashboard.')
       },
     })
 
@@ -139,15 +235,18 @@ export function CheckoutForm({
     <div className="space-y-6">
       {/* Error Display */}
       {error && (
-        <div className="bg-alert/10 border border-alert/20 rounded-xl p-4 flex items-start gap-3">
-          <svg className="w-5 h-5 text-alert flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-[#F28C00]/10 border border-[#F28C00]/20 rounded-xl p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-[#F28C00] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <div>
-            <p className="text-sm font-medium text-alert">{error}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-[#F28C00]">{error}</p>
             <button 
-              onClick={() => setError(null)}
-              className="text-xs text-alert-600 hover:underline mt-1"
+              onClick={() => {
+                setError(null)
+                setRetryCount(0)
+              }}
+              className="text-xs text-[#F28C00]/80 hover:text-[#F28C00] hover:underline mt-1"
             >
               Dismiss
             </button>
@@ -156,32 +255,40 @@ export function CheckoutForm({
       )}
 
       {/* Order Summary Mobile */}
-      <div className="lg:hidden bg-canvas rounded-xl p-4 space-y-2">
-        <p className="text-sm text-neutral-600 flex justify-between">
+      <div className="lg:hidden bg-[#FAF9F6] rounded-xl p-4 space-y-2 border border-[#0F4C5C]/10">
+        <p className="text-sm text-[#1E1E1E]/70 flex justify-between">
           <span>{productTitle}</span>
           <span className="font-medium">Base Plan</span>
         </p>
         {selectedAddons.map((addon) => (
-          <p key={addon.id} className="text-sm text-neutral-600 flex justify-between">
+          <p key={addon.id} className="text-sm text-[#1E1E1E]/70 flex justify-between">
             <span>{addon.name}</span>
-            <span className="font-medium text-sage">+ {addon.type}</span>
+            <span className={`font-medium ${addon.type === 'service' ? 'text-[#6faa99]' : 'text-[#0F4C5C]'}`}>
+              + {addon.type === 'service' ? 'Service' : 'Drawing'}
+            </span>
           </p>
         ))}
-        <div className="border-t border-mist/50 pt-2 mt-2">
-          <p className="flex justify-between font-bold text-deep-700">
+        <div className="border-t border-[#0F4C5C]/10 pt-2 mt-2">
+          <p className="flex justify-between font-bold text-[#0F4C5C]">
             <span>Total</span>
             <span>KES {total.toLocaleString()}</span>
           </p>
         </div>
       </div>
 
-      {/* Pay Button */}
+      {/* Payment Button */}
       <button
         onClick={handlePayment}
         disabled={isLoading || !paystackReady}
         className={`
-          w-full btn-primary py-4 text-lg
-          ${(isLoading || !paystackReady) ? 'opacity-70 cursor-not-allowed' : ''}
+          w-full py-4 px-6 rounded-xl font-semibold text-white
+          bg-[#F28C00] hover:bg-[#F28C00]/90
+          disabled:opacity-60 disabled:cursor-not-allowed
+          transition-all duration-200
+          flex items-center justify-center gap-2
+          shadow-lg shadow-[#F28C00]/20
+          hover:shadow-xl hover:shadow-[#F28C00]/30
+          hover:-translate-y-0.5
         `}
       >
         {isLoading ? (
@@ -210,12 +317,34 @@ export function CheckoutForm({
         )}
       </button>
 
+      {/* Security Badges */}
+      <div className="flex items-center justify-center gap-4 text-xs text-[#1E1E1E]/50">
+        <div className="flex items-center gap-1">
+          <svg className="w-4 h-4 text-[#6faa99]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span>SSL Secure</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <svg className="w-4 h-4 text-[#6faa99]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span>256-bit Encryption</span>
+        </div>
+      </div>
+
       {/* Terms */}
-      <p className="text-xs text-neutral-500 text-center">
+      <p className="text-xs text-[#1E1E1E]/50 text-center">
         By clicking Pay, you agree to our{' '}
-        <a href="/terms" className="text-deep-600 hover:underline">Terms of Service</a>
+        <a href="/terms" className="text-[#0F4C5C] hover:underline">Terms of Service</a>
         {' '}and{' '}
-        <a href="/privacy" className="text-deep-600 hover:underline">Privacy Policy</a>
+        <a href="/privacy" className="text-[#0F4C5C] hover:underline">Privacy Policy</a>
+      </p>
+
+      {/* Backup Notice */}
+      <p className="text-[10px] text-[#1E1E1E]/40 text-center">
+        Payment processed securely by Paystack. If you encounter any issues, 
+        please contact <a href="mailto:support@tefetra.studio" className="text-[#0F4C5C] hover:underline">support@tefetra.studio</a>
       </p>
     </div>
   )

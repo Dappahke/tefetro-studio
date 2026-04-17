@@ -66,6 +66,9 @@ export const limiters = {
   // Strict: 5 attempts per 10 minutes for payment creation
   createOrder: new RateLimiter(5, 10 * 60 * 1000),
   
+  // Strict: 3 attempts per minute for downloads (prevents brute force)
+  download: new RateLimiter(3, 60 * 1000),
+  
   // Medium: 3 attempts per hour for link regeneration
   regenerateLink: new RateLimiter(3, 60 * 60 * 1000),
   
