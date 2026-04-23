@@ -14,7 +14,7 @@ export const revalidate = 0
 /* Helpers                            */
 /* ---------------------------------- */
 
-function createSignature(
+function signPayload(
   payload: string,
   secret: string
 ) {
@@ -27,20 +27,15 @@ function createSignature(
     .digest('hex')
 }
 
-function safeEqual(
+function safeCompare(
   a: string,
   b: string
 ) {
   try {
     const aa =
-      Buffer.from(
-        a
-      )
-
+      Buffer.from(a)
     const bb =
-      Buffer.from(
-        b
-      )
+      Buffer.from(b)
 
     if (
       aa.length !==
@@ -66,56 +61,72 @@ export async function POST(
   request: Request
 ) {
   try {
+    /* ---------------------------------- */
+    /* Read Headers (Vercel Safe)         */
+    /* ---------------------------------- */
+
     const hdr =
-      await headers()
+      headers()
 
     const signature =
       hdr.get(
         'x-paystack-signature'
-      )
-
-    const rawBody =
-      await request.text()
+      ) ||
+      hdr.get(
+        'X-Paystack-Signature'
+      ) ||
+      hdr.get(
+        'X-PAYSTACK-SIGNATURE'
+      ) ||
+      ''
 
     const secret =
       env.server
         .PAYSTACK_SECRET_KEY
+        ?.trim() || ''
+
+    const rawBody =
+      await request.text()
 
     /* ---------------------------------- */
     /* Debug Logs                         */
     /* ---------------------------------- */
 
     console.log(
-      '[PAYSTACK WEBHOOK]',
+      '[PAYSTACK]',
       {
         hasSignature:
           !!signature,
-        sigPrefix:
-          signature?.slice(
+        signaturePrefix:
+          signature.slice(
             0,
             12
           ),
         secretExists:
           !!secret,
         secretPrefix:
-          secret?.slice(
+          secret.slice(
             0,
             10
           ),
         bodyLength:
           rawBody.length,
+        headerKeys:
+          Array.from(
+            hdr.keys()
+          ),
       }
     )
 
     /* ---------------------------------- */
-    /* Header Missing                     */
+    /* Validate Inputs                    */
     /* ---------------------------------- */
 
     if (
       !signature
     ) {
       console.error(
-        '[PAYSTACK WEBHOOK] Missing signature header'
+        '[PAYSTACK] Missing signature header'
       )
 
       return NextResponse.json(
@@ -129,21 +140,17 @@ export async function POST(
       )
     }
 
-    /* ---------------------------------- */
-    /* Secret Missing                     */
-    /* ---------------------------------- */
-
     if (
       !secret
     ) {
       console.error(
-        '[PAYSTACK WEBHOOK] Missing PAYSTACK_SECRET_KEY'
+        '[PAYSTACK] Missing PAYSTACK_SECRET_KEY'
       )
 
       return NextResponse.json(
         {
           error:
-            'Server misconfiguration',
+            'Server misconfigured',
         },
         {
           status: 500,
@@ -152,34 +159,32 @@ export async function POST(
     }
 
     /* ---------------------------------- */
-    /* Verify Signature                   */
+    /* Signature Check                    */
     /* ---------------------------------- */
 
     const expected =
-      createSignature(
+      signPayload(
         rawBody,
         secret
       )
 
-    const verified =
-      safeEqual(
+    const valid =
+      safeCompare(
         signature,
         expected
       )
 
-    if (
-      !verified
-    ) {
+    if (!valid) {
       console.error(
-        '[PAYSTACK WEBHOOK] Signature mismatch',
+        '[PAYSTACK] Signature mismatch',
         {
-          expectedPrefix:
-            expected.slice(
+          received:
+            signature.slice(
               0,
               12
             ),
-          receivedPrefix:
-            signature.slice(
+          expected:
+            expected.slice(
               0,
               12
             ),
@@ -198,7 +203,7 @@ export async function POST(
     }
 
     /* ---------------------------------- */
-    /* Parse Event                        */
+    /* Parse Payload                      */
     /* ---------------------------------- */
 
     const body =
@@ -212,7 +217,7 @@ export async function POST(
     } = body
 
     console.log(
-      '[PAYSTACK WEBHOOK] Verified',
+      '[PAYSTACK] Verified',
       {
         event,
         reference:
@@ -221,7 +226,7 @@ export async function POST(
     )
 
     /* ---------------------------------- */
-    /* Only Handle Success                */
+    /* Only Success Charge                */
     /* ---------------------------------- */
 
     if (
@@ -238,12 +243,12 @@ export async function POST(
     const reference =
       data.reference
 
-    const customerEmail =
+    const email =
       data.customer
         ?.email ||
       null
 
-    const amount =
+    const total =
       Number(
         data.amount ||
           0
@@ -258,7 +263,8 @@ export async function POST(
     /* ---------------------------------- */
 
     const {
-      data: existing,
+      data:
+        existing,
     } =
       await adminClient
         .from(
@@ -277,7 +283,7 @@ export async function POST(
       existing
     ) {
       console.log(
-        '[PAYSTACK WEBHOOK] Duplicate ignored',
+        '[PAYSTACK] Duplicate ignored',
         reference
       )
 
@@ -305,8 +311,7 @@ export async function POST(
             metadata.user_id ||
             null,
 
-          email:
-            customerEmail,
+          email,
 
           product_id:
             metadata.product_id ||
@@ -316,8 +321,7 @@ export async function POST(
             metadata.addons ||
             [],
 
-          total:
-            amount,
+          total,
 
           payment_ref:
             reference,
@@ -325,15 +329,14 @@ export async function POST(
           status:
             'paid',
 
-          metadata:
-            metadata,
+          metadata,
         })
 
     if (
       insertError
     ) {
       console.error(
-        '[PAYSTACK WEBHOOK] Insert failed',
+        '[PAYSTACK] Insert failed',
         insertError
       )
 
@@ -349,7 +352,7 @@ export async function POST(
     }
 
     console.log(
-      '[PAYSTACK WEBHOOK] Order created',
+      '[PAYSTACK] Order created',
       reference
     )
 
@@ -362,7 +365,7 @@ export async function POST(
     error
   ) {
     console.error(
-      '[PAYSTACK WEBHOOK] Fatal error',
+      '[PAYSTACK] Fatal',
       error
     )
 
