@@ -272,7 +272,7 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
               href={`/admin/orders/${id}?tab=${tab.id}`}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? "bg-tefetra text-white shadow-md"
+                  ? "bg-tefetro text-white shadow-md"
                   : "text-deep-600 hover:bg-canvas"
               }`}
             >
@@ -307,12 +307,12 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
               <>
                 {/* Product Card */}
                 <section className="bg-white rounded-2xl border border-mist/30 shadow-soft overflow-hidden print-section">
-                  <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetra/5 to-transparent flex items-center justify-between print-header-row">
+                  <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetro/5 to-transparent flex items-center justify-between print-header-row">
                     <h2 className="font-semibold text-deep-700 flex items-center gap-2">
-                      <Home size={18} className="text-tefetra" />
+                      <Home size={18} className="text-tefetro" />
                       Architectural Drawing
                     </h2>
-                    <span className="px-3 py-1 bg-tefetra/10 text-tefetra text-xs font-medium rounded-full no-print">
+                    <span className="px-3 py-1 bg-tefetro/10 text-tefetro text-xs font-medium rounded-full no-print">
                       {product?.category || "Digital Product"}
                     </span>
                   </div>
@@ -353,7 +353,7 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
                         </div>
                       </div>
                       <div className="text-right md:border-l md:border-mist/20 md:pl-6 print-price-box">
-                        <p className="text-2xl font-bold text-tefetra print-text-black">
+                        <p className="text-2xl font-bold text-tefetro print-text-black">
                           {formatKES(product?.price || 0)}
                         </p>
                         <p className="text-xs text-mist print-text-gray">Base price</p>
@@ -365,9 +365,9 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
                 {/* Add-ons */}
                 {addons.length > 0 && (
                   <section className="bg-white rounded-2xl border border-mist/30 shadow-soft overflow-hidden print-section">
-                    <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetra/5 to-transparent print-header-row">
+                    <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetro/5 to-transparent print-header-row">
                       <h2 className="font-semibold text-deep-700 flex items-center gap-2">
-                        <CheckCircle2 size={18} className="text-tefetra" />
+                        <CheckCircle2 size={18} className="text-tefetro" />
                         Selected Add-ons ({addons.length})
                       </h2>
                     </div>
@@ -390,7 +390,7 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
                               </span>
                             </div>
                           </div>
-                          <p className="text-lg font-bold text-tefetra print-text-sm print-text-black">
+                          <p className="text-lg font-bold text-tefetro print-text-sm print-text-black">
                             {formatKES(addon.price)}
                           </p>
                         </div>
@@ -439,7 +439,7 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
             {/* Order Summary */}
             <div className="bg-white rounded-2xl border border-mist/30 shadow-soft p-6">
               <h3 className="font-semibold text-deep-700 mb-4 flex items-center gap-2">
-                <CreditCard size={18} className="text-tefetra" />
+                <CreditCard size={18} className="text-tefetro" />
                 Payment Summary
               </h3>
               <div className="space-y-3 text-sm">
@@ -466,7 +466,7 @@ export default async function OrderDetailsPage({ params, searchParams }: PagePro
                 <div className="border-t border-mist/20 pt-4 mt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span className="text-deep-800">Total Paid</span>
-                    <span className="text-tefetra">{formatKES(order.total)}</span>
+                    <span className="text-tefetro ">{formatKES(order.total)}</span>
                   </div>
                 </div>
               </div>

@@ -12,10 +12,13 @@ const mobileNavItems = [
   { href: '/admin', label: 'Home', icon: '📊', roles: ['user', 'admin'] },
   { href: '/admin/orders', label: 'Orders', icon: '📦', roles: ['user', 'admin'] },
   { href: '/admin/projects', label: 'Projects', icon: '🏗️', roles: ['user', 'admin'] },
+
+
 ]
 
 const adminMenuItems = [
   { href: '/admin/products', label: 'Products', icon: '📐' },
+    { href: '/admin/portfolio', label: 'Portfolio', icon: '🎨', roles: ['admin'] },
   { href: '/admin/users', label: 'Users', icon: '👥' },
   { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
   { href: '/admin/activity', label: 'Activity', icon: '📜' },

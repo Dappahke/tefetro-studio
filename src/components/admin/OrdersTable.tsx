@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { PriceDisplayCompact } from '../products/PriceDisplayCompact'
+import { PriceDisplayCompact } from '../checkout/PriceDisplayCompact'
 
 interface Order {
   id: string

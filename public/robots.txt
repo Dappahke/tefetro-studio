@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tefetro.studio/sitemap.xml

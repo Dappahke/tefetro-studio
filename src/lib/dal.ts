@@ -5,98 +5,188 @@ import { createClient } from './supabase/server'
 import { adminClient } from './supabase/admin'
 import type { User } from '@supabase/supabase-js'
 
-// Cached auth check — prevents multiple DB calls in same request
-export const verifySession = cache(async (): Promise<{ user: User; role: 'user' | 'admin'; email: string } | null> => {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
+type Role = 'user' | 'admin'
 
-  if (error || !user || !user.email) return null
+type SearchParams = {
+  [key: string]: string | string[] | undefined
+}
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+/* =========================================================
+   HELPERS
+========================================================= */
 
-  return {
-    user,
-    role: profile?.role || 'user',
-    email: user.email,
+function asString(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0]
+  return value
+}
+
+function asNumber(value: string | string[] | undefined, fallback: number) {
+  const parsed = parseInt(asString(value) || '', 10)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
+
+function sanitizeSearchTerm(value: string) {
+  return value
+    .trim()
+    .replace(/[,%]/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 60)
+}
+
+function normalizeSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+function buildStorageUrl(path: string | null | undefined) {
+  if (!path) return ''
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
   }
-})
 
-// Verify admin specifically
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const clean = path.startsWith('/') ? path.slice(1) : path
+
+  return `${base}/storage/v1/object/public/drawings/${clean}`
+}
+
+/* =========================================================
+   AUTH
+========================================================= */
+
+// Cached auth check — avoids repeated auth calls per request
+export const verifySession = cache(
+  async (): Promise<{ user: User; role: Role; email: string } | null> => {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error || !user || !user.email) return null
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    return {
+      user,
+      role: (profile?.role as Role) || 'user',
+      email: user.email,
+    }
+  }
+)
+
 export const verifyAdmin = cache(async () => {
   const session = await verifySession()
+
   if (!session || session.role !== 'admin') {
     throw new Error('Unauthorized: Admin access required')
   }
+
   return session
 })
 
-// Public data — no auth required
-export async function fetchProducts(searchParams?: { [key: string]: string | string[] | undefined }) {
+/* =========================================================
+   PUBLIC PRODUCTS
+========================================================= */
+
+export async function fetchProducts(searchParams?: SearchParams) {
   try {
     const supabase = await createClient()
-    
-    // Build query - removed the product_addons join that's causing issues
+    const limit = Math.min(asNumber(searchParams?.limit, 20), 50)
+    const offset = Math.max(asNumber(searchParams?.offset, 0), 0)
+
     let query = supabase
       .from('products')
-      .select('*', { count: 'exact' })
+      .select(
+        `
+        id,
+        slug,
+        title,
+        description,
+        price,
+        category,
+        bedrooms,
+        bathrooms,
+        floors,
+        plinth_area,
+        length,
+        width,
+        elevation_images,
+        created_at,
+        updated_at
+      `,
+        { count: 'exact' }
+      )
       .order('created_at', { ascending: false })
 
-    // Apply category filter
-    if (searchParams?.category && searchParams.category !== 'all') {
-      query = query.eq('category', searchParams.category)
+    // Category
+    const category = asString(searchParams?.category)
+    if (category && category !== 'all') {
+      query = query.eq('category', category)
     }
 
-    // Apply search query (title or description)
-    if (searchParams?.q) {
-      const searchTerm = String(searchParams.q).trim()
-      query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+    // Search
+    const rawQuery = asString(searchParams?.q)
+    if (rawQuery) {
+      const safeQuery = sanitizeSearchTerm(rawQuery)
+
+      if (safeQuery.length > 0) {
+        query = query.or(
+          `title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`
+        )
+      }
     }
 
-    // Apply bedroom filter
-    if (searchParams?.bedrooms) {
-      query = query.eq('bedrooms', parseInt(String(searchParams.bedrooms)))
+    // Bedrooms
+    const bedrooms = asString(searchParams?.bedrooms)
+    if (bedrooms) {
+      query = query.eq('bedrooms', parseInt(bedrooms, 10))
     }
 
-    // Apply floors filter
-    if (searchParams?.floors) {
-      query = query.eq('floors', parseInt(String(searchParams.floors)))
+    // Floors
+    const floors = asString(searchParams?.floors)
+    if (floors) {
+      query = query.eq('floors', parseInt(floors, 10))
     }
 
-    // Apply price range filter
-    if (searchParams?.price && searchParams.price !== 'all') {
-      const priceRange = String(searchParams.price)
-      if (priceRange === '0-50000') {
+    // Price
+    const price = asString(searchParams?.price)
+    if (price && price !== 'all') {
+      if (price === '0-50000') {
         query = query.gte('price', 0).lte('price', 50000)
-      } else if (priceRange === '50000-100000') {
+      } else if (price === '50000-100000') {
         query = query.gte('price', 50000).lte('price', 100000)
-      } else if (priceRange === '100000-250000') {
+      } else if (price === '100000-250000') {
         query = query.gte('price', 100000).lte('price', 250000)
-      } else if (priceRange === '250000+') {
+      } else if (price === '250000+') {
         query = query.gte('price', 250000)
       }
     }
 
-    // Pagination
-    const limit = parseInt(String(searchParams?.limit)) || 20
-    const offset = parseInt(String(searchParams?.offset)) || 0
     query = query.range(offset, offset + limit - 1)
 
     const { data, error, count } = await query
 
     if (error) {
-      console.error('Supabase query error:', error)
-      throw new Error(`Database error: ${error.message}`)
+      throw new Error(error.message)
     }
-    
-    // Map products with safe defaults
-    const products = (data || []).map((p: any) => ({
-      ...p,
-      addon_count: 0 // Simplified - remove the product_addons join for now
-    }))
+
+    const products =
+      data?.map((p: any) => ({
+        ...p,
+        slug: p.slug || normalizeSlug(p.title || p.id),
+        addon_count: 0,
+      })) || []
 
     return {
       products,
@@ -104,56 +194,84 @@ export async function fetchProducts(searchParams?: { [key: string]: string | str
       limit,
       offset,
     }
-  } catch (err) {
-    console.error('fetchProducts error:', err)
-    
-    // Return empty data instead of crashing
+  } catch (error) {
+    console.error('fetchProducts error:', error)
+
     return {
       products: [],
       total: 0,
       limit: 20,
       offset: 0,
-      error: err instanceof Error ? err.message : 'Failed to fetch products'
+      error:
+        error instanceof Error ? error.message : 'Failed to fetch products',
     }
   }
 }
 
+/* =========================================================
+   SINGLE PRODUCT
+========================================================= */
+
 export async function fetchProductById(id: string) {
   try {
     const supabase = await createClient()
-    
-    const { data: product, error: productError } = await supabase
+
+    const { data, error } = await supabase
       .from('products')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (productError) {
-      console.error('fetchProductById error:', productError)
-      throw new Error(`Failed to fetch product: ${productError.message}`)
-    }
-    
-    if (!product) {
+    if (error || !data) {
       throw new Error('Product not found')
     }
 
     return {
-      ...product,
+      ...data,
+      slug: data.slug || normalizeSlug(data.title || data.id),
       addons: [],
     }
-  } catch (err) {
-    console.error('fetchProductById error:', err)
-    throw err
+  } catch (error) {
+    console.error('fetchProductById error:', error)
+    throw error
   }
 }
 
-// Protected data — requires authentication
+export async function fetchProductBySlug(slug: string) {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+
+    if (error || !data) {
+      throw new Error('Product not found')
+    }
+
+    return {
+      ...data,
+      addons: [],
+    }
+  } catch (error) {
+    console.error('fetchProductBySlug error:', error)
+    throw error
+  }
+}
+
+/* =========================================================
+   ORDERS
+========================================================= */
+
 export async function fetchUserOrders() {
   const session = await verifySession()
+
   if (!session) throw new Error('Unauthorized')
 
   const supabase = await createClient()
-  
+
   const { data, error } = await supabase
     .from('orders')
     .select('*')
@@ -161,35 +279,38 @@ export async function fetchUserOrders() {
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(`Failed to fetch orders: ${error.message}`)
+
   return data || []
 }
 
-// Admin data — requires admin role
 export async function fetchAllOrders() {
   await verifyAdmin()
-  
+
   const { data, error } = await adminClient
     .from('orders')
     .select('*, profiles(email)')
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(`Failed to fetch orders: ${error.message}`)
+
   return data || []
 }
 
-// Create order — validates price server-side
 export async function createOrder(input: {
   productId: string
   addons: string[]
   paymentRef: string
 }) {
   const session = await verifySession()
+
   if (!session) throw new Error('Unauthorized')
 
   const product = await fetchProductById(input.productId)
+
   if (!product) throw new Error('Product not found')
 
-  let total = Number(product.price)
+  let total = Number(product.price || 0)
+
   const addonDetails: any[] = []
 
   const { data, error } = await adminClient
@@ -199,33 +320,48 @@ export async function createOrder(input: {
       email: session.email,
       product_id: input.productId,
       addons: addonDetails,
-      total: total,
+      total,
       payment_ref: input.paymentRef,
-      status: 'completed',
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      status: 'pending', // safer than completed
+      expires_at: new Date(
+        Date.now() + 24 * 60 * 60 * 1000
+      ).toISOString(),
     })
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to create order: ${error.message}`)
+  if (error) {
+    throw new Error(`Failed to create order: ${error.message}`)
+  }
+
   return data
 }
 
-// Create project request
+/* =========================================================
+   PROJECT REQUESTS
+========================================================= */
+
 export async function createProjectRequest(input: {
   serviceType: 'supervision' | 'contracting' | 'interior' | 'landscape'
   description?: string
 }) {
   const session = await verifySession()
+
   if (!session) throw new Error('Unauthorized')
 
-  const validServices = ['supervision', 'contracting', 'interior', 'landscape']
+  const validServices = [
+    'supervision',
+    'contracting',
+    'interior',
+    'landscape',
+  ]
+
   if (!validServices.includes(input.serviceType)) {
     throw new Error('Invalid service type')
   }
 
   const supabase = await createClient()
-  
+
   const { data, error } = await supabase
     .from('projects')
     .insert({
@@ -238,80 +374,61 @@ export async function createProjectRequest(input: {
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to create project: ${error.message}`)
+  if (error) {
+    throw new Error(`Failed to create project: ${error.message}`)
+  }
+
   return data
 }
 
-/**
- * Fetch random elevation images from products for hero slideshow
- * Uses PostgreSQL unnest to flatten elevation_images arrays and select random unique images
- */
-export async function fetchRandomElevationImages(limit: number = 6): Promise<string[]> {
+/* =========================================================
+   HERO IMAGES
+========================================================= */
+
+export async function fetchRandomElevationImages(
+  limit: number = 6
+): Promise<string[]> {
   const supabase = await createClient()
-  
-  // Supabase storage URL
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  
-  // Helper to construct proper storage URL for drawings bucket
-  const constructStorageUrl = (path: string): string => {
-    if (!path) return ''
-    // If already absolute URL, return as-is
-    if (path.startsWith('http://') || path.startsWith('https://')) return path
-    
-    // Clean the path - remove any leading slashes
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path
-    
-    // Images are stored in 'drawings' bucket with paths like 'elevations/filename.jpg'
-    return `${SUPABASE_URL}/storage/v1/object/public/drawings/${cleanPath}`
-  }
-  
+
   try {
-    // Try RPC first
-    const { data, error } = await supabase
-      .rpc('get_random_elevation_images', { image_limit: limit })
-    
+    // Preferred RPC function
+    const { data, error } = await supabase.rpc(
+      'get_random_elevation_images',
+      {
+        image_limit: limit,
+      }
+    )
+
     if (!error && data && data.length > 0) {
-      console.log('RPC success, images:', data.length)
       return data
-        .map((row: { image_url: string }) => constructStorageUrl(row.image_url))
+        .map((row: { image_url: string }) =>
+          buildStorageUrl(row.image_url)
+        )
         .filter(Boolean)
     }
-    
-    // Log RPC error for debugging
-    if (error) {
-      console.warn('RPC failed, using fallback:', error.message)
-    }
-    
-    // Fallback: query manually
-    const { data: fallbackData, error: fallbackError } = await supabase
+
+    // fallback query
+    const { data: rows, error: fallbackError } = await supabase
       .from('products')
       .select('elevation_images')
       .not('elevation_images', 'is', null)
       .limit(30)
-    
-    if (fallbackError || !fallbackData) {
-      console.error('Fallback query failed:', fallbackError)
-      return []
-    }
-    
-    // Flatten, deduplicate, and construct URLs
-    const allImages = fallbackData
-      .flatMap((p: any) => p.elevation_images || [])
-      .filter((img: string, idx: number, arr: string[]) => 
-        arr.indexOf(img) === idx && img && img.trim() !== ''
+
+    if (fallbackError || !rows) return []
+
+    const images = rows
+      .flatMap((row: any) => row.elevation_images || [])
+      .filter(
+        (img: string, i: number, arr: string[]) =>
+          img &&
+          img.trim() !== '' &&
+          arr.indexOf(img) === i
       )
-      .map(constructStorageUrl)
-      .filter(Boolean)
-    
-    console.log('Fallback found images:', allImages.length)
-    
-    // Shuffle and limit
-    return allImages
-      .sort(() => Math.random() - 0.5)
-      .slice(0, limit)
-      
-  } catch (err) {
-    console.error('Exception fetching elevation images:', err)
+      .map(buildStorageUrl)
+
+    return images.sort(() => Math.random() - 0.5).slice(0, limit)
+  } catch (error) {
+    console.error('fetchRandomElevationImages error:', error)
     return []
   }
 }

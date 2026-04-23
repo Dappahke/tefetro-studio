@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { PriceDisplayCompact } from '../products/PriceDisplayCompact'
+import { PriceDisplayCompact } from '../checkout/PriceDisplayCompact'
 import type { Project } from '@/types/project' // ✅ single source of truth
 
 interface ProjectsListViewProps {

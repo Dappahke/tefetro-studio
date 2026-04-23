@@ -34,12 +34,12 @@ export function ProductsSearch() {
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search products..."
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-mist/50 rounded-xl focus:border-tefetra focus:ring-1 focus:ring-tefetra outline-none transition-colors"
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-mist/50 rounded-xl focus:border-tefetro focus:ring-1 focus:ring-tefetro outline-none transition-colors"
         />
       </div>
       
       <select 
-        className="px-4 py-2.5 bg-white border border-mist/50 rounded-xl text-neutral-600 focus:border-tefetra outline-none"
+        className="px-4 py-2.5 bg-white border border-mist/50 rounded-xl text-neutral-600 focus:border-tefetro outline-none"
         defaultValue={searchParams.get('category') || ''}
         onChange={(e) => {
           const params = new URLSearchParams(searchParams.toString())

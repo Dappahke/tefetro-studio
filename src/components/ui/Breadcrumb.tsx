@@ -1,6 +1,10 @@
+// src/components/ui/Breadcrumb.tsx
+
 'use client'
 
 import Link from 'next/link'
+import Script from 'next/script'
+import { Home, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface BreadcrumbItem {
@@ -13,65 +17,135 @@ interface BreadcrumbProps {
   className?: string
 }
 
-export function Breadcrumb({ items, className }: BreadcrumbProps) {
+export function Breadcrumb({
+  items,
+  className,
+}: BreadcrumbProps) {
+  const siteUrl =
+    process.env
+      .NEXT_PUBLIC_SITE_URL ||
+    'https://tefetro.studio'
+
+  const allItems = [
+    {
+      label: 'Home',
+      href: '/',
+    },
+    ...items,
+  ]
+
+  /* -------------------------------- */
+  /* SEO JSON-LD Schema              */
+  /* Google recommends BreadcrumbList */
+  /* -------------------------------- */
+  const schema = {
+    '@context':
+      'https://schema.org',
+    '@type':
+      'BreadcrumbList',
+    itemListElement:
+      allItems.map(
+        (
+          item,
+          index
+        ) => ({
+          '@type':
+            'ListItem',
+          position:
+            index + 1,
+          name:
+            item.label,
+          item: `${siteUrl}${item.href}`,
+        })
+      ),
+  }
+
   return (
-    <nav 
-      aria-label="Breadcrumb" 
-      className={cn('text-sm', className)}
-    >
-      <ol className="flex items-center gap-2 flex-wrap">
-        {/* Home link */}
-        <li>
-          <Link 
-            href="/" 
-            className="text-neutral-500 hover:text-deep-700 transition-colors flex items-center gap-1"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="sr-only">Home</span>
-          </Link>
-        </li>
+    <>
+      {/* Structured Data */}
+      <Script
+        id="breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html:
+            JSON.stringify(
+              schema
+            ),
+        }}
+      />
 
-        {/* Separator */}
-        <li aria-hidden="true" className="text-neutral-400">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </li>
+      {/* Visual Breadcrumb */}
+      <nav
+        aria-label="Breadcrumb"
+        className={cn(
+          'w-full',
+          className
+        )}
+      >
+        <ol className="flex flex-wrap items-center gap-1.5 text-sm md:text-[15px]">
+          {allItems.map(
+            (
+              item,
+              index
+            ) => {
+              const isLast =
+                index ===
+                allItems.length -
+                  1
 
-        {/* Breadcrumb items */}
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1
+              const isHome =
+                index === 0
 
-          return (
-            <li key={item.href} className="flex items-center gap-2">
-              {isLast ? (
-                <span 
-                  aria-current="page"
-                  className="font-medium text-deep-700"
+              return (
+                <li
+                  key={`${item.href}-${index}`}
+                  className="flex items-center gap-1.5"
                 >
-                  {item.label}
-                </span>
-              ) : (
-                <>
-                  <Link 
-                    href={item.href}
-                    className="text-neutral-500 hover:text-deep-700 transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                  <span aria-hidden="true" className="text-neutral-400">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </>
-              )}
-            </li>
-          )
-        })}
-      </ol>
-    </nav>
+                  {/* Item */}
+                  {isLast ? (
+                    <span
+                      aria-current="page"
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 font-semibold text-slate-900 max-w-[220px] truncate"
+                    >
+                      {isHome ? (
+                        <Home className="w-4 h-4" />
+                      ) : null}
+
+                      {
+                        item.label
+                      }
+                    </span>
+                  ) : (
+                    <Link
+                      href={
+                        item.href
+                      }
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-slate-500 hover:text-[#0F4C5C] hover:bg-slate-50 transition-all duration-200'
+                      )}
+                    >
+                      {isHome ? (
+                        <Home className="w-4 h-4" />
+                      ) : null}
+
+                      <span className="truncate max-w-[140px]">
+                        {
+                          item.label
+                        }
+                      </span>
+                    </Link>
+                  )}
+
+                  {/* Separator */}
+                  {!isLast && (
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  )}
+                </li>
+              )
+            }
+          )}
+        </ol>
+      </nav>
+    </>
   )
 }

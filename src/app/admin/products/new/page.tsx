@@ -1,7 +1,7 @@
 import { verifyAdmin } from '@/lib/dal'
 import { adminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { ProductForm } from '@/components/admin/ProductForm'
+import { ProductForm } from '@/components/admin/product-form/ProductForm'
 
 export default async function NewProductPage() {
   await verifyAdmin()

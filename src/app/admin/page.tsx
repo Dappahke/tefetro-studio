@@ -95,8 +95,8 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-tefetra/10 rounded-2xl p-6 border border-tefetra/20">
-            <h3 className="font-semibold text-tefetra-700 mb-2">Admin Access</h3>
+          <div className="bg-tefetro/10 rounded-2xl p-6 border border-tefetro/20">
+            <h3 className="font-semibold text-tefetro-700 mb-2">Admin Access</h3>
             <p className="text-sm text-neutral-600 mb-4">
               Full system access enabled
             </p>
@@ -112,7 +112,7 @@ export default async function AdminDashboardPage() {
       <div className="bg-white rounded-2xl shadow-soft border border-mist/30 overflow-hidden">
         <div className="p-6 border-b border-mist/30 flex items-center justify-between">
           <h2 className="text-lg font-bold text-deep-700">Recent Orders</h2>
-          <Link href="/admin/orders" className="text-sm text-tefetra hover:underline">
+          <Link href="/admin/orders" className="text-sm text-tefetro hover:underline">
             View All
           </Link>
         </div>

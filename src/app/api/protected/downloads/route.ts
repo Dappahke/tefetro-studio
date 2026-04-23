@@ -1,225 +1,472 @@
+// src/app/api/protected/downloads/route.ts
+
 import { NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { verifySession } from '@/lib/dal'
-import { limiters, getIdentifier } from '@/lib/security/rate-limiter'
+import {
+  limiters,
+  getIdentifier,
+} from '@/lib/security/rate-limiter'
 import { env } from '@/lib/env'
-import { createHash, timingSafeEqual } from 'crypto'
+import {
+  createHash,
+  timingSafeEqual,
+} from 'crypto'
 
-// Token format: orderId:expiresAt:signature
-function verifyDownloadToken(token: string): { 
-  orderId: string; 
-  expiresAt: number;
-  valid: boolean 
-} | null {
+export const dynamic =
+  'force-dynamic'
+
+export const revalidate = 0
+
+/* ---------------------------------- */
+/* Token Format                       */
+/* orderId:expiresAt:signature        */
+/* ---------------------------------- */
+
+function verifyDownloadToken(
+  token: string
+):
+  | {
+      orderId: string
+      expiresAt: number
+      valid: boolean
+    }
+  | null {
   try {
-    const parts = token.split(':')
-    if (parts.length !== 3) return null
+    const parts =
+      token.split(':')
 
-    const [orderId, expiresAtStr, signature] = parts
-    if (!orderId || !expiresAtStr || !signature) return null
+    if (
+      parts.length !== 3
+    )
+      return null
 
-    const expiresAt = parseInt(expiresAtStr, 10)
-    if (isNaN(expiresAt) || expiresAt <= 0) return null
+    const [
+      orderId,
+      expiresAtStr,
+      signature,
+    ] = parts
 
-    if (Date.now() > expiresAt) {
-      return { orderId, expiresAt, valid: false }
+    if (
+      !orderId ||
+      !expiresAtStr ||
+      !signature
+    )
+      return null
+
+    const expiresAt =
+      parseInt(
+        expiresAtStr,
+        10
+      )
+
+    if (
+      isNaN(
+        expiresAt
+      )
+    )
+      return null
+
+    if (
+      Date.now() >
+      expiresAt
+    ) {
+      return {
+        orderId,
+        expiresAt,
+        valid: false,
+      }
     }
 
-    const expectedSignature = createHash('sha256')
-      .update(`${orderId}:${expiresAtStr}:${env.server.DOWNLOAD_SECRET}`)
-      .digest('hex')
+    const expected =
+      createHash(
+        'sha256'
+      )
+        .update(
+          `${orderId}:${expiresAtStr}:${env.server.DOWNLOAD_SECRET}`
+        )
+        .digest(
+          'hex'
+        )
 
-    const sigBuffer = Buffer.from(signature)
-    const expectedBuffer = Buffer.from(expectedSignature)
+    const a =
+      Buffer.from(
+        signature
+      )
 
-    if (sigBuffer.length !== expectedBuffer.length) return null
+    const b =
+      Buffer.from(
+        expected
+      )
 
-    const valid = timingSafeEqual(sigBuffer, expectedBuffer)
-    return { orderId, expiresAt, valid }
+    if (
+      a.length !==
+      b.length
+    )
+      return null
 
-  } catch (error) {
-    console.error('Token verification error:', error)
+    const valid =
+      timingSafeEqual(
+        a,
+        b
+      )
+
+    return {
+      orderId,
+      expiresAt,
+      valid,
+    }
+  } catch (
+    error
+  ) {
+    console.error(
+      'Token verify failed:',
+      error
+    )
     return null
   }
 }
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+/* ---------------------------------- */
+/* GET                                */
+/* ---------------------------------- */
 
-export async function GET(request: Request) {
-  const startTime = Date.now()
-  
+export async function GET(
+  request: Request
+) {
   try {
-    // Get token from query parameter
-    const url = new URL(request.url)
-    const rawToken = url.searchParams.get('token')
-    
-    if (!rawToken) {
-      console.error('No token provided in request')
+    /* ------------------------------ */
+    /* Query Params                   */
+    /* ------------------------------ */
+
+    const url =
+      new URL(
+        request.url
+      )
+
+    const rawToken =
+      url.searchParams.get(
+        'token'
+      )
+
+    if (
+      !rawToken
+    ) {
       return NextResponse.json(
-        { error: 'No download token provided' },
-        { status: 400 }
+        {
+          error:
+            'Missing token',
+        },
+        {
+          status: 400,
+        }
       )
     }
-    
-    // Decode the token
-    const token = decodeURIComponent(rawToken)
-    
-    console.log('Download request for token:', token.substring(0, 50) + '...')
 
-    // Rate limiting
-    const identifier = getIdentifier(request)
-    
-    let rateLimit = { success: true }
+    const token =
+      decodeURIComponent(
+        rawToken
+      )
+
+    /* ------------------------------ */
+    /* Rate Limit                     */
+    /* ------------------------------ */
+
     try {
-      rateLimit = await limiters.download.check(identifier)
-    } catch (err) {
-      console.warn('Rate limiter not available, skipping')
-    }
-    
-    if (!rateLimit.success) {
-      return NextResponse.json(
-        { error: 'Too many download attempts. Please try again later.' },
-        { status: 429 }
-      )
-    }
-
-    // Verify token
-    const tokenData = verifyDownloadToken(token)
-    
-    if (!tokenData) {
-      console.error('Invalid token format:', token)
-      return NextResponse.json(
-        { error: 'Invalid download link format' },
-        { status: 403 }
-      )
-    }
-
-    if (!tokenData.valid) {
-      console.log('Token expired for order:', tokenData.orderId)
-      return NextResponse.json(
-        { 
-          error: 'Download link has expired', 
-          orderId: tokenData.orderId,
-          canRegenerate: true 
-        },
-        { status: 410 }
-      )
-    }
-
-    const { orderId } = tokenData
-
-    // Verify authentication
-    const session = await verifySession()
-    if (!session) {
-      console.log('No session for download:', orderId)
-      return NextResponse.json(
-        { error: 'Authentication required to download' },
-        { status: 401 }
-      )
-    }
-
-    console.log('User authenticated:', session.user.id, 'looking for order:', orderId)
-
-    // Fetch order with adminClient - REMOVED non-existent columns (file_name, file_size, mime_type)
-    const { data: order, error: orderError } = await adminClient
-      .from('orders')
-      .select(`
-        *,
-        product:products!product_id(
-          id, 
-          title, 
-          file_path
+      const identifier =
+        getIdentifier(
+          request
         )
-      `)
-      .eq('id', orderId)
-      .eq('user_id', session.user.id)
-      .single()
 
-    if (orderError || !order) {
-      console.error('Order not found:', { 
-        orderId, 
-        userId: session.user.id, 
-        error: orderError 
-      })
-      return NextResponse.json(
-        { error: 'Order not found or access denied' },
-        { status: 404 }
+      const result =
+        await limiters.download.check(
+          identifier
+        )
+
+      if (
+        !result.success
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Too many attempts. Please try again later.',
+          },
+          {
+            status: 429,
+          }
+        )
+      }
+    } catch {
+      console.warn(
+        'Rate limiter unavailable'
       )
     }
 
-    console.log('Order found:', { orderId, status: order.status })
+    /* ------------------------------ */
+    /* Verify Token                   */
+    /* ------------------------------ */
 
-    // Verify order status
-    if (order.status !== 'completed') {
-      console.log('Order not completed:', { orderId, status: order.status })
-      return NextResponse.json(
-        { error: `Order is ${order.status}. Download not available.` },
-        { status: 403 }
+    const parsed =
+      verifyDownloadToken(
+        token
       )
-    }
 
-    // Check expiry
-    const dbExpiry = new Date(order.expires_at)
-    if (dbExpiry < new Date()) {
-      console.log('Order expired:', { orderId, expires_at: order.expires_at })
+    if (
+      !parsed
+    ) {
       return NextResponse.json(
-        { 
-          error: 'Download link has expired', 
-          orderId,
-          canRegenerate: true 
+        {
+          error:
+            'Invalid token',
         },
-        { status: 410 }
+        {
+          status: 403,
+        }
       )
     }
 
-    // Get file path
-    const filePath = order.product?.file_path
-    if (!filePath) {
-      console.error('No file path for product:', order.product_id)
+    if (
+      !parsed.valid
+    ) {
       return NextResponse.json(
-        { error: 'File not available for this product' },
-        { status: 404 }
+        {
+          error:
+            'Download link expired',
+          orderId:
+            parsed.orderId,
+          canRegenerate:
+            true,
+        },
+        {
+          status: 410,
+        }
       )
     }
 
-    console.log('Generating signed URL for file:', filePath)
+    /* ------------------------------ */
+    /* Auth Required                  */
+    /* ------------------------------ */
 
-    // Generate signed URL
-    const { data: signedUrlData, error: urlError } = await adminClient.storage
-      .from('drawings')
-      .createSignedUrl(filePath, 60 * 5) // 5 minutes
+    const session =
+      await verifySession()
 
-    if (urlError || !signedUrlData) {
-      console.error('Signed URL generation failed:', urlError)
+    if (
+      !session
+    ) {
       return NextResponse.json(
-        { error: 'Failed to generate download URL. The file may not exist.' },
-        { status: 500 }
+        {
+          error:
+            'Authentication required',
+        },
+        {
+          status: 401,
+        }
       )
     }
 
-    console.log('Download ready for order:', orderId)
+    /* ------------------------------ */
+    /* Fetch Order                    */
+    /* ------------------------------ */
 
-    // Extract filename from file path
-    const filename = filePath.split('/').pop() || 'Architectural-Plan.pdf'
+    const {
+      data: order,
+      error:
+        orderError,
+    } =
+      await adminClient
+        .from(
+          'orders'
+        )
+        .select(
+          `
+          id,
+          user_id,
+          status,
+          expires_at,
+          product_id,
+          product:products!product_id(
+            id,
+            title,
+            file_path
+          )
+        `
+        )
+        .eq(
+          'id',
+          parsed.orderId
+        )
+        .eq(
+          'user_id',
+          session.user.id
+        )
+        .single()
 
-    // Return download info
-    return NextResponse.json({
-      success: true,
-      downloadUrl: signedUrlData.signedUrl,
-      expiresIn: 300,
-      filename: filename,
-      fileSize: null,
-      mimeType: 'application/pdf',
-      orderId,
-      productTitle: order.product?.title || 'Architectural Plan'
-    })
+    if (
+      orderError ||
+      !order
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Order not found',
+        },
+        {
+          status: 404,
+        }
+      )
+    }
 
-  } catch (err) {
-    console.error('Download error:', err)
+    /* ------------------------------ */
+    /* Status Fix                     */
+    /* Allow paid OR completed        */
+    /* ------------------------------ */
+
+    if (
+      order.status !==
+        'paid' &&
+      order.status !==
+        'completed'
+    ) {
+      return NextResponse.json(
+        {
+          error: `Order is ${order.status}. Download unavailable.`,
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    /* ------------------------------ */
+    /* Expiry Check                   */
+    /* ------------------------------ */
+
+    if (
+      order.expires_at
+    ) {
+      const dbExpiry =
+        new Date(
+          order.expires_at
+        )
+
+      if (
+        dbExpiry <
+        new Date()
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Download link expired',
+            orderId:
+              order.id,
+            canRegenerate:
+              true,
+          },
+          {
+            status: 410,
+          }
+        )
+      }
+    }
+
+    /* ------------------------------ */
+    /* File Path                      */
+    /* ------------------------------ */
+
+      const product = Array.isArray(order.product)
+        ? order.product[0]
+        : order.product
+
+      const filePath =
+        product?.file_path
+
+    if (
+      !filePath
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'No file available',
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    /* ------------------------------ */
+    /* Signed URL                     */
+    /* ------------------------------ */
+
+    const {
+      data:
+        signedData,
+      error:
+        signedError,
+    } =
+      await adminClient.storage
+        .from(
+          'drawings'
+        )
+        .createSignedUrl(
+          filePath,
+          60 * 5
+        )
+
+    if (
+      signedError ||
+      !signedData
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Unable to generate secure file link',
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    const filename =
+      filePath
+        .split('/')
+        .pop() ||
+      'Architectural-Plan.pdf'
+
     return NextResponse.json(
-      { error: 'Internal server error. Please try again later.' },
-      { status: 500 }
+      {
+        success: true,
+        orderId:
+          order.id,
+        filename,
+        fileSize: null,
+        mimeType:
+          'application/pdf',
+        expiresIn: 300,
+        downloadUrl:
+          signedData.signedUrl,
+        productTitle:
+          product?.title ||
+          'Architectural Plan',
+      }
+    )
+  } catch (
+    error
+  ) {
+    console.error(
+      'Download route error:',
+      error
+    )
+
+    return NextResponse.json(
+      {
+        error:
+          'Internal server error',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }

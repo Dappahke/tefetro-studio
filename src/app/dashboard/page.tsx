@@ -71,7 +71,11 @@ export default function DashboardOverview() {
         <p className="text-[#1E1E1E]/60 mt-2">Here's what's happening with your projects and orders.</p>
       </div>
 
-      <PaymentSummary {...({ stats } as any)} />
+      <PaymentSummary
+        total={0}
+        paid={0}
+        currency="KES"
+      />
       
       <div className="grid lg:grid-cols-2 gap-8">
         <ProjectList orders={[]} />

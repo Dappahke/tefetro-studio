@@ -1,120 +1,379 @@
+// src/app/api/webhooks/paystack/route.ts
+
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { env } from '@/lib/env'
-import { adminClient } from '@/lib/supabase/admin'
-import { audit } from '@/lib/security/audit-logger'
 import crypto from 'crypto'
 
-// Verify Paystack webhook signature
-function verifyWebhookSignature(payload: string, signature: string): boolean {
-  const hash = crypto
-    .createHmac('sha512', env.server.PAYSTACK_SECRET_KEY)
+import { env } from '@/lib/env'
+import { adminClient } from '@/lib/supabase/admin'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+/* ---------------------------------- */
+/* Helpers                            */
+/* ---------------------------------- */
+
+function createSignature(
+  payload: string,
+  secret: string
+) {
+  return crypto
+    .createHmac(
+      'sha512',
+      secret.trim()
+    )
     .update(payload)
     .digest('hex')
-  
-  return hash === signature
 }
 
-export async function POST(request: Request) {
+function safeEqual(
+  a: string,
+  b: string
+) {
   try {
-    const headersList = await headers()
-    const signature = headersList.get('x-paystack-signature')
-    
-    if (!signature) {
-      console.error('No Paystack signature header')
+    const aa =
+      Buffer.from(
+        a
+      )
+
+    const bb =
+      Buffer.from(
+        b
+      )
+
+    if (
+      aa.length !==
+      bb.length
+    ) {
+      return false
+    }
+
+    return crypto.timingSafeEqual(
+      aa,
+      bb
+    )
+  } catch {
+    return false
+  }
+}
+
+/* ---------------------------------- */
+/* POST                               */
+/* ---------------------------------- */
+
+export async function POST(
+  request: Request
+) {
+  try {
+    const hdr =
+      await headers()
+
+    const signature =
+      hdr.get(
+        'x-paystack-signature'
+      )
+
+    const rawBody =
+      await request.text()
+
+    const secret =
+      env.server
+        .PAYSTACK_SECRET_KEY
+
+    /* ---------------------------------- */
+    /* Debug Logs                         */
+    /* ---------------------------------- */
+
+    console.log(
+      '[PAYSTACK WEBHOOK]',
+      {
+        hasSignature:
+          !!signature,
+        sigPrefix:
+          signature?.slice(
+            0,
+            12
+          ),
+        secretExists:
+          !!secret,
+        secretPrefix:
+          secret?.slice(
+            0,
+            10
+          ),
+        bodyLength:
+          rawBody.length,
+      }
+    )
+
+    /* ---------------------------------- */
+    /* Header Missing                     */
+    /* ---------------------------------- */
+
+    if (
+      !signature
+    ) {
+      console.error(
+        '[PAYSTACK WEBHOOK] Missing signature header'
+      )
+
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        {
+          error:
+            'Unauthorized',
+        },
+        {
+          status: 401,
+        }
       )
     }
 
-    // Get raw body for signature verification
-    const rawBody = await request.text()
-    
-    // Verify webhook signature
-    if (!verifyWebhookSignature(rawBody, signature)) {
-      console.error('Invalid webhook signature')
+    /* ---------------------------------- */
+    /* Secret Missing                     */
+    /* ---------------------------------- */
+
+    if (
+      !secret
+    ) {
+      console.error(
+        '[PAYSTACK WEBHOOK] Missing PAYSTACK_SECRET_KEY'
+      )
+
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        {
+          error:
+            'Server misconfiguration',
+        },
+        {
+          status: 500,
+        }
       )
     }
 
-    const body = JSON.parse(rawBody)
-    const { event, data } = body
+    /* ---------------------------------- */
+    /* Verify Signature                   */
+    /* ---------------------------------- */
 
-    console.log('Paystack webhook received:', { event, reference: data?.reference })
+    const expected =
+      createSignature(
+        rawBody,
+        secret
+      )
 
-    // Handle different event types
-    switch (event) {
-      case 'charge.success':
-        // Payment was successful
-        const { reference, amount, customer, metadata } = data
-        
-        // Check if order already exists
-        const { data: existingOrder } = await adminClient
-          .from('orders')
-          .select('id')
-          .eq('payment_ref', reference)
-          .single()
+    const verified =
+      safeEqual(
+        signature,
+        expected
+      )
 
-        if (existingOrder) {
-          console.log('Order already processed:', reference)
-          return NextResponse.json({ received: true })
+    if (
+      !verified
+    ) {
+      console.error(
+        '[PAYSTACK WEBHOOK] Signature mismatch',
+        {
+          expectedPrefix:
+            expected.slice(
+              0,
+              12
+            ),
+          receivedPrefix:
+            signature.slice(
+              0,
+              12
+            ),
         }
+      )
 
-        // Create order from webhook
-        const { error: insertError } = await adminClient
-          .from('orders')
-          .insert({
-            payment_ref: reference,
-            amount: amount / 100, // Convert from kobo
-            customer_email: customer.email,
-            status: 'completed',
-            metadata: metadata || {},
-            created_at: new Date().toISOString()
-          })
-
-        if (insertError) {
-          console.error('Failed to create order from webhook:', insertError)
-          return NextResponse.json(
-            { error: 'Failed to process order' },
-            { status: 500 }
-          )
+      return NextResponse.json(
+        {
+          error:
+            'Unauthorized',
+        },
+        {
+          status: 401,
         }
+      )
+    }
 
-        // Log payment success (without webhookReceived)
-        await audit.paymentSuccess({
-          userId: metadata?.user_id || 'unknown',
-          email: customer.email,
-          orderId: metadata?.order_id || 'unknown',
-          amount: amount / 100,
-          paymentRef: reference,
-          metadata: { source: 'webhook', ...metadata }
+    /* ---------------------------------- */
+    /* Parse Event                        */
+    /* ---------------------------------- */
+
+    const body =
+      JSON.parse(
+        rawBody
+      )
+
+    const {
+      event,
+      data,
+    } = body
+
+    console.log(
+      '[PAYSTACK WEBHOOK] Verified',
+      {
+        event,
+        reference:
+          data?.reference,
+      }
+    )
+
+    /* ---------------------------------- */
+    /* Only Handle Success                */
+    /* ---------------------------------- */
+
+    if (
+      event !==
+      'charge.success'
+    ) {
+      return NextResponse.json(
+        {
+          received: true,
+        }
+      )
+    }
+
+    const reference =
+      data.reference
+
+    const customerEmail =
+      data.customer
+        ?.email ||
+      null
+
+    const amount =
+      Number(
+        data.amount ||
+          0
+      ) / 100
+
+    const metadata =
+      data.metadata ||
+      {}
+
+    /* ---------------------------------- */
+    /* Duplicate Check                    */
+    /* ---------------------------------- */
+
+    const {
+      data: existing,
+    } =
+      await adminClient
+        .from(
+          'orders'
+        )
+        .select(
+          'id'
+        )
+        .eq(
+          'payment_ref',
+          reference
+        )
+        .maybeSingle()
+
+    if (
+      existing
+    ) {
+      console.log(
+        '[PAYSTACK WEBHOOK] Duplicate ignored',
+        reference
+      )
+
+      return NextResponse.json(
+        {
+          received: true,
+        }
+      )
+    }
+
+    /* ---------------------------------- */
+    /* Insert Order                       */
+    /* ---------------------------------- */
+
+    const {
+      error:
+        insertError,
+    } =
+      await adminClient
+        .from(
+          'orders'
+        )
+        .insert({
+          user_id:
+            metadata.user_id ||
+            null,
+
+          email:
+            customerEmail,
+
+          product_id:
+            metadata.product_id ||
+            null,
+
+          addons:
+            metadata.addons ||
+            [],
+
+          total:
+            amount,
+
+          payment_ref:
+            reference,
+
+          status:
+            'paid',
+
+          metadata:
+            metadata,
         })
 
-        console.log('Order created from webhook:', reference)
-        break
+    if (
+      insertError
+    ) {
+      console.error(
+        '[PAYSTACK WEBHOOK] Insert failed',
+        insertError
+      )
 
-      case 'charge.dispute.create':
-        console.log('Dispute created:', data.reference)
-        break
-
-      case 'charge.dispute.resolve':
-        console.log('Dispute resolved:', data.reference)
-        break
-
-      default:
-        console.log('Unhandled webhook event:', event)
+      return NextResponse.json(
+        {
+          error:
+            'Insert failed',
+        },
+        {
+          status: 500,
+        }
+      )
     }
 
-    return NextResponse.json({ received: true })
+    console.log(
+      '[PAYSTACK WEBHOOK] Order created',
+      reference
+    )
 
-  } catch (err) {
-    console.error('Webhook processing error:', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      {
+        received: true,
+      }
+    )
+  } catch (
+    error
+  ) {
+    console.error(
+      '[PAYSTACK WEBHOOK] Fatal error',
+      error
+    )
+
+    return NextResponse.json(
+      {
+        error:
+          'Internal server error',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }

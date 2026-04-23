@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { PriceDisplayCompact } from '../products/PriceDisplayCompact'
+import { PriceDisplayCompact } from '../checkout/PriceDisplayCompact'
 
 interface Product {
   id: string

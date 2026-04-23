@@ -125,7 +125,7 @@ export default async function AdminLayout({
                     <input
                       type="search"
                       placeholder="Search orders, products, projects..."
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-mist/50 rounded-xl text-sm text-deep-700 placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-tefetra/20 focus:border-tefetra transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-mist/50 rounded-xl text-sm text-deep-700 placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-tefetro/20 focus:border-tefetro transition-all"
                     />
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export default async function AdminLayout({
                 <form action={toggleTheme}>
                   <button 
                     type="submit"
-                    className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-mist/50 text-deep-600 hover:border-tefetra/30 hover:text-tefetra transition-all"
+                    className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-mist/50 text-deep-600 hover:border-tefetro/30 hover:text-tefetro transition-all"
                     aria-label="Toggle theme"
                   >
                     <Sun size={18} />
@@ -154,7 +154,7 @@ export default async function AdminLayout({
                 <div className="relative group">
                   <button 
                     type="button"
-                    className="flex items-center gap-3 pl-2 pr-4 py-2 bg-white border border-mist/50 rounded-xl hover:border-tefetra/30 transition-all"
+                    className="flex items-center gap-3 pl-2 pr-4 py-2 bg-white border border-mist/50 rounded-xl hover:border-tefetro/30 transition-all"
                   >
                     {/* Avatar or Initials */}
                     {avatarUrl ? (
@@ -166,7 +166,7 @@ export default async function AdminLayout({
                         className="w-8 h-8 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-8 h-8 bg-gradient-to-br from-tefetra to-tefetra-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      <div className="w-8 h-8 bg-gradient-to-br from-tefetro to-tefetro-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                         {displayName[0].toUpperCase()}
                       </div>
                     )}

@@ -41,7 +41,7 @@ export async function sendReceiptEmail(email: string, data: ReceiptEmailData) {
               <!-- Header -->
               <tr>
                 <td style="background-color: #0F4C5C; padding: 32px; text-align: center;">
-                  <img src="https://tefetra.studio/images/tefetro-logo.png" alt="Tefetro Studios" width="140" style="display: block; margin: 0 auto;" />
+                  <img src="https://tefetro.studio/images/tefetro-logo.png" alt="Tefetro Studios" width="140" style="display: block; margin: 0 auto;" />
                   <h1 style="color: #FAF9F6; font-size: 24px; margin: 16px 0 0 0; font-weight: 600;">
                     ${isRegeneration ? 'New Download Link' : 'Thank You for Your Purchase!'}
                   </h1>
@@ -195,7 +195,7 @@ export async function notifyAdminOfProject(
                   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
                     <tr>
                       <td align="center">
-                        <a href="https://tefetra.studio/admin/projects" 
+                        <a href="https://tefetro.studio/admin/projects" 
                            style="display: inline-block; background-color: #6faa99; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px;">
                           View in Admin Dashboard
                         </a>
@@ -291,7 +291,7 @@ export async function sendProjectUpdateEmail(
                   <table width="100%" cellpadding="0" cellspacing="0">
                     <tr>
                       <td align="center">
-                        <a href="https://tefetra.studio/dashboard" 
+                        <a href="https://tefetro.studio/dashboard" 
                            style="display: inline-block; background-color: #F28C00; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(242, 140, 0, 0.3);">
                           View Dashboard
                         </a>

@@ -1,13 +1,28 @@
+// src/components/checkout/PaymentRetry.tsx
+
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  AlertTriangle,
+  Loader2,
+  RotateCw,
+  MessageCircle,
+  X,
+  ShieldCheck,
+} from 'lucide-react'
 
 interface PaymentRetryProps {
   productId: string
   productTitle: string
   total: number
-  selectedAddons: Array<{ id: string; name: string; price: number; type: string }>
+  selectedAddons: Array<{
+    id: string
+    name: string
+    price: number
+    type: string
+  }>
   userEmail: string
   originalRef?: string
   onClose?: () => void
@@ -18,131 +33,274 @@ export function PaymentRetry({
   productTitle,
   total,
   selectedAddons,
-  userEmail,
   originalRef,
-  onClose
+  onClose,
 }: PaymentRetryProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router =
+    useRouter()
 
-  const handleRetry = async () => {
-    setIsLoading(true)
+  const [loading, setLoading] =
+    useState(false)
+
+  const [checking, setChecking] =
+    useState(
+      !!originalRef
+    )
+
+  const [error, setError] =
+    useState<
+      string | null
+    >(null)
+
+  /* -------------------------------- */
+  /* Auto Verify Existing Ref         */
+  /* -------------------------------- */
+  useEffect(() => {
+    if (
+      !originalRef
+    )
+      return
+
+    verifyExisting()
+  }, [])
+
+  async function verifyExisting() {
+    try {
+      setChecking(
+        true
+      )
+
+      const res =
+        await fetch(
+          `/api/protected/orders/check?ref=${originalRef}`
+        )
+
+      const data =
+        await res.json()
+
+      if (
+        data.exists
+      ) {
+        router.push(
+          `/checkout/success?order=${data.orderId}`
+        )
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setChecking(
+        false
+      )
+    }
+  }
+
+  /* -------------------------------- */
+  /* Retry Flow                       */
+  /* -------------------------------- */
+  async function handleRetry() {
+    setLoading(
+      true
+    )
     setError(null)
 
     try {
-      // Check if original payment actually succeeded (webhook might have processed it)
-      if (originalRef) {
-        const checkRes = await fetch(`/api/protected/orders/check?ref=${originalRef}`)
-        const checkData = await checkRes.json()
-        
-        if (checkData.exists) {
-          // Payment actually succeeded! Redirect to success
-          router.push(`/dashboard?order=${checkData.orderId}&success=true`)
+      if (
+        originalRef
+      ) {
+        const res =
+          await fetch(
+            `/api/protected/orders/check?ref=${originalRef}`
+          )
+
+        const data =
+          await res.json()
+
+        if (
+          data.exists
+        ) {
+          router.push(
+            `/checkout/success?order=${data.orderId}`
+          )
           return
         }
       }
 
-      // Otherwise, redirect back to checkout with same params
-      const addonParams = selectedAddons.length > 0 
-        ? `&addons=${selectedAddons.map(a => a.id).join(',')}` 
-        : ''
-      
-      router.push(`/checkout?productId=${productId}${addonParams}&retry=true`)
-      
-    } catch (err) {
-      setError('Unable to check payment status. Please try again.')
-      setIsLoading(false)
+      const addonParams =
+        selectedAddons.length >
+        0
+          ? `&addons=${selectedAddons
+              .map(
+                (
+                  a
+                ) =>
+                  a.id
+              )
+              .join(
+                ','
+              )}`
+          : ''
+
+      router.push(
+        `/checkout?productId=${productId}${addonParams}&retry=true`
+      )
+    } catch {
+      setError(
+        'Unable to verify payment right now. Please try again.'
+      )
+      setLoading(
+        false
+      )
     }
   }
 
-  const handleContactSupport = () => {
-    window.location.href = `mailto:support@tefetra.studio?subject=Payment Issue - ${originalRef || 'Unknown'}&body=I encountered an issue with my payment for ${productTitle}. Please assist.`
+  /* -------------------------------- */
+  /* WhatsApp Support                 */
+  /* -------------------------------- */
+  function contactSupport() {
+    const message =
+      encodeURIComponent(
+        `Hello Tefetro Support, I experienced a payment issue.\n\nProduct: ${productTitle}\nAmount: KES ${total.toLocaleString()}\nReference: ${originalRef || 'N/A'}`
+      )
+
+    window.open(
+      `https://wa.me/254791939235?text=${message}`,
+      '_blank'
+    )
   }
 
   return (
-    <div className="fixed inset-0 bg-[#1E1E1E]/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-[#0F4C5C]/10">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-[#F28C00]/10 rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-bold text-[#0F4C5C]">Payment Incomplete</h3>
-            <p className="text-xs text-[#1E1E1E]/50">We couldn&apos;t confirm your payment</p>
-          </div>
-        </div>
+    <div className="fixed inset-0 z-[100] bg-black/55 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="relative w-full max-w-md rounded-3xl border border-white/20 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        {/* Top Accent */}
+        <div className="h-1.5 bg-gradient-to-r from-[#F28C00] via-[#f3a63f] to-[#0F4C5C]" />
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-[#F28C00]/10 border border-[#F28C00]/20 rounded-lg p-3 mb-4">
-            <p className="text-sm text-[#F28C00]">{error}</p>
-          </div>
+        {/* Close */}
+        {onClose && (
+          <button
+            onClick={
+              onClose
+            }
+            className="absolute top-4 right-4 h-10 w-10 rounded-2xl bg-slate-100 hover:bg-slate-200 transition flex items-center justify-center"
+          >
+            <X className="w-4 h-4 text-slate-700" />
+          </button>
         )}
 
-        {/* Order Summary */}
-        <div className="bg-[#FAF9F6] rounded-xl p-4 mb-6 border border-[#0F4C5C]/5">
-          <p className="text-sm text-[#1E1E1E]/60 mb-1">{productTitle}</p>
-          <p className="text-lg font-bold text-[#F28C00]">KES {total.toLocaleString()}</p>
-          {selectedAddons.length > 0 && (
-            <p className="text-xs text-[#1E1E1E]/50 mt-1">
-              + {selectedAddons.length} addon{selectedAddons.length > 1 ? 's' : ''}
+        <div className="p-7">
+          {/* Header */}
+          <div className="flex items-start gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-[#F28C00]/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-6 h-6 text-[#F28C00]" />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">
+                Payment Not Confirmed
+              </h3>
+
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                Your payment may still be processing. We’ll verify it first before retrying.
+              </p>
+            </div>
+          </div>
+
+          {/* Checking */}
+          {checking && (
+            <div className="mt-5 rounded-2xl bg-slate-50 border border-slate-200 p-4 flex items-center gap-3 text-sm text-slate-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Checking latest payment status...
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="mt-5 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Summary */}
+          <div className="mt-6 rounded-3xl bg-slate-50 border border-slate-200 p-5">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+              Order Summary
             </p>
-          )}
-        </div>
 
-        {/* Options */}
-        <div className="space-y-3">
-          <button
-            onClick={handleRetry}
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-[#F28C00] text-white font-semibold rounded-xl hover:bg-[#F28C00]/90 transition-all duration-200 disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Checking...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Retry Payment
-              </>
+            <p className="mt-2 font-semibold text-slate-900">
+              {productTitle}
+            </p>
+
+            <p className="mt-3 text-2xl font-bold text-[#0F4C5C]">
+              KES{' '}
+              {total.toLocaleString()}
+            </p>
+
+            {selectedAddons.length >
+              0 && (
+              <p className="mt-2 text-sm text-slate-500">
+                Includes{' '}
+                {
+                  selectedAddons.length
+                }{' '}
+                add-on
+                {selectedAddons.length >
+                1
+                  ? 's'
+                  : ''}
+              </p>
             )}
-          </button>
 
-          <button
-            onClick={handleContactSupport}
-            className="w-full py-3 px-4 bg-white text-[#0F4C5C] font-semibold rounded-xl border-2 border-[#0F4C5C]/20 hover:border-[#0F4C5C]/40 hover:bg-[#0F4C5C]/5 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Contact Support
-          </button>
+            {originalRef && (
+              <p className="mt-3 text-xs text-slate-400 break-all">
+                Ref:{' '}
+                {
+                  originalRef
+                }
+              </p>
+            )}
+          </div>
 
-          {onClose && (
+          {/* Actions */}
+          <div className="mt-6 space-y-3">
             <button
-              onClick={onClose}
-              className="w-full py-2 text-sm text-[#1E1E1E]/50 hover:text-[#1E1E1E] transition-colors"
+              onClick={
+                handleRetry
+              }
+              disabled={
+                loading ||
+                checking
+              }
+              className="w-full h-12 rounded-2xl bg-[#F28C00] text-white font-semibold hover:bg-[#de8207] transition disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Cancel
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <RotateCw className="w-4 h-4" />
+                  Retry Payment
+                </>
+              )}
             </button>
-          )}
-        </div>
 
-        {/* Reassurance */}
-        <p className="mt-4 text-xs text-[#1E1E1E]/40 text-center">
-          If you were charged but don&apos;t see your order, our team will resolve this within 24 hours.
-        </p>
+            <button
+              onClick={
+                contactSupport
+              }
+              className="w-full h-12 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-semibold transition flex items-center justify-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp Support
+            </button>
+          </div>
+
+          {/* Footer Trust */}
+          <div className="mt-6 flex items-start gap-2 text-xs text-slate-500 leading-relaxed">
+            <ShieldCheck className="w-4 h-4 mt-0.5 text-[#0F4C5C]" />
+            If you were charged but no order appears, our team will manually resolve it promptly.
+          </div>
+        </div>
       </div>
     </div>
   )

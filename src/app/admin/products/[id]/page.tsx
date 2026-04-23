@@ -2,7 +2,7 @@ import { verifyAdmin } from '@/lib/dal'
 import { adminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ProductForm } from '@/components/admin/ProductForm'
+import { ProductForm } from '@/components/admin/product-form/ProductForm'
 
 interface EditProductPageProps {
   params: {

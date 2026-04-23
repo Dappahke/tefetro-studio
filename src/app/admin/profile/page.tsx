@@ -108,9 +108,9 @@ export default async function ProfilePage({
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             <section className="bg-white rounded-2xl border border-mist/30 shadow-soft overflow-hidden">
-              <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetra/5 to-transparent">
+              <div className="px-6 py-4 border-b border-mist/20 bg-gradient-to-r from-tefetro/5 to-transparent">
                 <h2 className="font-semibold text-deep-700 flex items-center gap-2">
-                  <User size={18} className="text-tefetra" />
+                  <User size={18} className="text-tefetro" />
                   Personal Information
                 </h2>
               </div>
@@ -135,7 +135,7 @@ export default async function ProfilePage({
                         name="name"
                         defaultValue={profile?.name || ''}
                         placeholder="Your full name"
-                        className="w-full pl-12 pr-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-tefetra/20 focus:border-tefetra transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-tefetro/20 focus:border-tefetro transition-all"
                       />
                     </div>
                   </div>
@@ -165,7 +165,7 @@ export default async function ProfilePage({
                     </Link>
                     <button
                       type="submit"
-                      className="px-6 py-2.5 bg-tefetra text-white rounded-xl font-medium hover:bg-tefetra-600 transition-all shadow-lg shadow-tefetra/20 flex items-center gap-2"
+                      className="px-6 py-2.5 bg-tefetro text-white rounded-xl font-medium hover:bg-tefetro-600 transition-all shadow-lg shadow-tefetro/20 flex items-center gap-2"
                     >
                       <Save size={18} />
                       Save Changes
@@ -197,7 +197,7 @@ export default async function ProfilePage({
                   </div>
                   <Link
                     href="/admin/profile/change-password"
-                    className="px-4 py-2 text-sm font-medium text-tefetra hover:text-tefetra-600"
+                    className="px-4 py-2 text-sm font-medium text-tefetro hover:text-tefetro-600"
                   >
                     Change
                   </Link>

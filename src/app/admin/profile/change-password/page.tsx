@@ -40,7 +40,7 @@ export default async function ChangePasswordPage() {
               <input
                 type="password"
                 required
-                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetra/20 focus:border-tefetra transition-all"
+                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetro/20 focus:border-tefetro transition-all"
               />
             </div>
 
@@ -52,7 +52,7 @@ export default async function ChangePasswordPage() {
                 type="password"
                 required
                 minLength={8}
-                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetra/20 focus:border-tefetra transition-all"
+                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetro/20 focus:border-tefetro transition-all"
               />
               <p className="text-xs text-mist">Must be at least 8 characters</p>
             </div>
@@ -64,13 +64,13 @@ export default async function ChangePasswordPage() {
               <input
                 type="password"
                 required
-                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetra/20 focus:border-tefetra transition-all"
+                className="w-full px-4 py-3 bg-canvas border border-mist rounded-xl text-deep-800 focus:outline-none focus:ring-2 focus:ring-tefetro/20 focus:border-tefetro transition-all"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-tefetra text-white rounded-xl font-medium hover:bg-tefetra-600 transition-all shadow-lg shadow-tefetra/20"
+              className="w-full py-3 bg-tefetro text-white rounded-xl font-medium hover:bg-tefetro-600 transition-all shadow-lg shadow-tefetro/20"
             >
               Update Password
             </button>

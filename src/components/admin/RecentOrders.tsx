@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { PriceDisplayCompact } from '../products/PriceDisplayCompact'
+import { PriceDisplayCompact } from '../checkout/PriceDisplayCompact'
 
 interface Order {
   id: string

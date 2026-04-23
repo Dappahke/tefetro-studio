@@ -7,25 +7,34 @@ module.exports = {
   ],
   theme: {
     extend: {
+      /* =========================
+         FONTS
+      ========================= */
+      fontFamily: {
+        sans: ["var(--font-manrope)", "system-ui", "sans-serif"],
+        display: ["var(--font-manrope)", "system-ui", "sans-serif"],
+        serif: ["var(--font-cormorant)", "Georgia", "serif"],
+      },
+
+      /* =========================
+         COLORS — Blueprint First
+      ========================= */
       colors: {
-        /* =========================
-           PRIMARY ACTION (CONTROLLED ORANGE)
-        ========================= */
-        tefetra: {
-          DEFAULT: "#EF961C",
-          50: "#FFFBF3",
-          100: "#FEF3DD",
-          200: "#FCE2B3",
-          300: "#F9C87A",
-          400: "#EF961C", // main CTA
-          500: "#D88414",
-          600: "#B56B10",
-          700: "#8F520D",
+        /* ─── Blueprint (Primary Anchor) ─── */
+        blueprint: {
+          50: "#eaf3fb",
+          100: "#d4e7f7",
+          200: "#a9cfef",
+          300: "#7eb7e7",
+          400: "#539fdf",
+          500: "#1f4e79", // core blueprint
+          600: "#1a4266",
+          700: "#14354d",
+          800: "#0f2839",
+          900: "#091b26",
         },
 
-        /* =========================
-           BRAND IDENTITY (DEEP TEAL)
-        ========================= */
+        /* ─── Deep Teal (Structural) ─── */
         deep: {
           DEFAULT: "#094453",
           50: "#F2F7F8",
@@ -33,14 +42,14 @@ module.exports = {
           200: "#C4DDE2",
           300: "#9FC7CE",
           400: "#6FA7B1",
-          500: "#094453", // main identity
+          500: "#094453",
           600: "#073642",
           700: "#052A33",
+          800: "#042028",
+          900: "#030f12",
         },
 
-        /* =========================
-           SAGE (SUBTLE SUPPORT)
-        ========================= */
+        /* ─── Sage (Subtle Support) ─── */
         sage: {
           DEFAULT: "#6FAA99",
           50: "#F6FAF8",
@@ -53,9 +62,7 @@ module.exports = {
           700: "#3A5D53",
         },
 
-        /* =========================
-           MIST (SOFT BACKGROUND ACCENT)
-        ========================= */
+        /* ─── Mist (Soft Background Accent) ─── */
         mist: {
           DEFAULT: "#ACCEBA",
           50: "#FAFDFC",
@@ -68,21 +75,31 @@ module.exports = {
           700: "#547B64",
         },
 
-        /* =========================
-           CANVAS (PRIMARY BACKGROUND SYSTEM)
-        ========================= */
+        /* ─── Canvas (Background System) ─── */
         canvas: {
-          DEFAULT: "#FCF8F2", // main background
-          50: "#FFFDFA",
+          DEFAULT: "#FCF8F2",
+          50: "#fefdfb",
           100: "#FCF8F2",
-          200: "#F5EFE6",
-          300: "#EBE0D1",
-          400: "#DECBB6",
+          200: "#fbf5ed",
+          300: "#f9f0e4",
+          400: "#f5efe6",
+          500: "#e8dfd1",
         },
 
-        /* =========================
-           NEUTRALS (CRITICAL FOR PREMIUM FEEL)
-        ========================= */
+        /* ─── Accent (Orange — Controlled, Rare) ─── */
+        accent: {
+          DEFAULT: "#f28c00",
+          50: "#fff4e6",
+          100: "#ffe9cc",
+          200: "#FCE2B3",
+          300: "#F9C87A",
+          400: "#ff9933",
+          500: "#f28c00", // main accent
+          600: "#d97a00",
+          700: "#B56B10",
+        },
+
+        /* ─── Neutrals ─── */
         neutral: {
           50: "#FFFFFF",
           100: "#F9F9F9",
@@ -96,9 +113,7 @@ module.exports = {
           900: "#1A1A1A",
         },
 
-        /* =========================
-           ALERT SYSTEM
-        ========================= */
+        /* ─── Alert ─── */
         alert: {
           DEFAULT: "#E53937",
           50: "#FEF2F2",
@@ -110,10 +125,23 @@ module.exports = {
           600: "#DC2626",
           700: "#B91C1C",
         },
+
+        /* ─── Legacy mappings (for gradual migration) ─── */
+        tefetro: {
+          DEFAULT: "#EF961C",
+          50: "#FFFBF3",
+          100: "#FEF3DD",
+          200: "#FCE2B3",
+          300: "#F9C87A",
+          400: "#EF961C",
+          500: "#D88414",
+          600: "#B56B10",
+          700: "#8F520D",
+        },
       },
 
       /* =========================
-         SHADOW SYSTEM (SOFT, ARCHITECTURAL)
+         SHADOW SYSTEM
       ========================= */
       boxShadow: {
         soft: "0 4px 20px rgba(0,0,0,0.05)",
@@ -121,15 +149,75 @@ module.exports = {
         glass: "0 4px 30px rgba(9, 68, 83, 0.08)",
         "glass-lg": "0 8px 40px rgba(9, 68, 83, 0.12)",
         accent: "0 10px 30px -10px rgba(239, 150, 28, 0.35)",
+        // Architectural shadows
+        arch: "0 1px 3px rgba(9, 27, 38, 0.04), 0 8px 24px rgba(9, 27, 38, 0.03)",
+        "arch-lg": "0 4px 6px rgba(9, 27, 38, 0.02), 0 16px 48px rgba(9, 27, 38, 0.06)",
+        "arch-xl": "0 8px 16px rgba(9, 27, 38, 0.04), 0 32px 64px rgba(9, 27, 38, 0.08)",
       },
 
       /* =========================
-         BORDER RADIUS (SOFT UI)
+         BORDER RADIUS
       ========================= */
       borderRadius: {
         xl: "12px",
         "2xl": "16px",
         "3xl": "24px",
+      },
+
+      /* =========================
+         TRANSITIONS
+      ========================= */
+      transitionDuration: {
+        250: "250ms",
+      },
+      transitionTimingFunction: {
+        arch: "cubic-bezier(0.4, 0, 0.2, 1)",
+      },
+
+      /* =========================
+         TYPOGRAPHY SCALE
+      ========================= */
+      fontSize: {
+        "display-xl": [
+          "clamp(3rem, 6vw, 5rem)",
+          { lineHeight: "1.05", letterSpacing: "-0.03em", fontWeight: "700" },
+        ],
+        display: [
+          "clamp(2.5rem, 5vw, 4rem)",
+          { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" },
+        ],
+        h1: [
+          "clamp(2rem, 4vw, 3rem)",
+          { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "600" },
+        ],
+        h2: [
+          "clamp(1.5rem, 3vw, 2.25rem)",
+          { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+        h3: [
+          "clamp(1.25rem, 2vw, 1.75rem)",
+          { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+        h4: [
+          "1.125rem",
+          { lineHeight: "1.4", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+        "body-lg": [
+          "1.125rem",
+          { lineHeight: "1.7", letterSpacing: "-0.01em", fontWeight: "400" },
+        ],
+        body: [
+          "1rem",
+          { lineHeight: "1.6", letterSpacing: "-0.01em", fontWeight: "400" },
+        ],
+        "body-sm": [
+          "0.875rem",
+          { lineHeight: "1.5", letterSpacing: "0em", fontWeight: "400" },
+        ],
+        caption: [
+          "0.75rem",
+          { lineHeight: "1.4", letterSpacing: "0.02em", fontWeight: "500" },
+        ],
       },
     },
   },

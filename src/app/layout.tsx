@@ -6,7 +6,6 @@ import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import AuthProvider from "@/components/providers/AuthProvider";
-
 import { cn } from "@/lib/utils";
 
 const montserrat = Montserrat({
@@ -17,126 +16,133 @@ const montserrat = Montserrat({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#0F4C5C",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#0F4C5C",
 };
 
 export const metadata: Metadata = {
-  title: {
-    default: "Tefetro Studios | Buy Ready-Made House Plans Online",
-    template: "%s | Tefetro Studios",
-  },
-  description:
-    "Purchase complete architectural drawings instantly. Get BOQ cost estimates, interior design, and landscaping. Licensed Kenyan architects. NCA compliant plans. Founded by Noel Syambi and Nicholas Wafula Walwa.",
-  keywords: [
-    "architectural plans",
-    "house plans Kenya",
-    "construction services Africa",
-    "building plans",
-    "residential architecture",
-    "BOQ Kenya",
-    "Tefetro Studios",
-    "Noel Syambi",
-    "Nicholas Wafula Wamalwa",
-    "buy house plans online",
-    "affordable architectural designs",
-    "architectural drawings",
-    "Interior design Kenya",
-    "landscaping design Kenya",
-    "licensed architects Kenya",
-    "NCA compliant plans",
-    "ready-made house plans",
-    "custom architectural plans",
-    "architectural design services",
-    "construction project management",
-    "architectural consultation",
-    "sustainable architecture Kenya",
-    "modern house plans Kenya",
-    "traditional house plans Kenya",
-    "contemporary house plans Kenya",
-    "affordable house plans Kenya",
-    "premium architectural plans Kenya",
-    "architectural plans for sale Kenya",
-    "house plan packages Kenya",
-    "architectural design packages Kenya",
-    "architectural services Kenya",
-    "construction plans",
-  ],
-  authors: [
-    { name: "Noel Syambi", url: "https://tefetro.studio" },
-    { name: "Nicholas Wafula Wamalwa" },
-  ],
-  creator: "Tefetro Studios",
-  publisher: "Tefetro Limited",
   metadataBase: new URL("https://tefetro.studio"),
-  alternates: { canonical: "/" },
+
+  title: {
+    default: "Tefetro Studio | Buy House Plans Online in Kenya",
+    template: "%s | Tefetro Studio",
+  },
+
+  description:
+    "Buy ready-made architectural house plans online in Kenya. Get BOQ estimates, interior design, landscaping, custom drawings and professional construction support from Tefetro Studio.",
+
+  keywords: [
+    "Tefetro Studio",
+    "Tefetro Studios",
+    "tefetro.studio",
+    "house plans Kenya",
+    "buy house plans online",
+    "architectural drawings Kenya",
+    "ready made house plans Kenya",
+    "modern house plans Kenya",
+    "BOQ Kenya",
+    "interior design Kenya",
+    "landscaping Kenya",
+    "construction drawings Kenya",
+    "architect Noel Syambi",
+    "Nicholas Wafula Wamalwa",
+    "NCA compliant plans",
+    "custom house plans Kenya",
+    "affordable house plans Kenya",
+  ],
+
+  applicationName: "Tefetro Studio",
+  creator: "Tefetro Studio",
+  publisher: "Tefetro Studio",
+  category: "Architecture",
+
+  alternates: {
+    canonical: "https://tefetro.studio",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      noimageindex: false,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+
+  verification: {
+    google: "PASTE_YOUR_GOOGLE_SEARCH_CONSOLE_CODE_HERE",
+  },
+
+  icons: {
+    icon: [
+      { url: "/favicon/favicon.ico" },
+      { url: "/favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [
+      { url: "/favicon/apple-touch-icon.png", sizes: "180x180" },
+    ],
+    shortcut: ["/favicon/favicon.ico"],
+  },
+
+  manifest: "/favicon/site.webmanifest",
 
   openGraph: {
     type: "website",
-    locale: "en_KE",
     url: "https://tefetro.studio",
-    siteName: "Tefetro Studios",
-    title: "Tefetro Studios | Buy Ready-Made House Plans Online",
+    siteName: "Tefetro Studio",
+    title: "Tefetro Studio | Buy House Plans Online in Kenya",
     description:
-      "Purchase complete architectural drawings instantly. Licensed Kenyan architects. NCA compliant.",
+      "Ready-made architectural plans, BOQ estimates, interiors, landscaping and custom design services.",
+    locale: "en_KE",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Tefetro Studios - Architectural Plans & Construction",
+        alt: "Tefetro Studio",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Tefetro Studios | Build Your Dream Home",
+    title: "Tefetro Studio | House Plans Kenya",
     description:
-      "Purchase complete architectural drawings instantly. Licensed Kenyan architects.",
-    images: ["/og-image.jpg"],
+      "Buy house plans online in Kenya. Architectural drawings, BOQ, interiors and custom design.",
+    images: ["/og-image.png"],
   },
 
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  verification: {
-    google: "your-google-verification-code",
-  },
+  authors: [
+    { name: "Noel Syambi", url: "https://tefetro.studio" },
+    { name: "Nicholas Wafula Wamalwa" },
+  ],
 };
 
-// 🔥 STRUCTURED DATA (UPDATED WITH CO-FOUNDER)
+// SEO Structured Data
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Tefetro Studios",
+  name: "Tefetro Studio",
+  alternateName: "Tefetro Studios",
   url: "https://tefetro.studio",
-  logo: "https://tefetro.studio/logo.svg",
+  logo: "https://tefetro.studio/favicon/android-chrome-512x512.png",
 
-  sameAs: [
-    "https://linkedin.com/company/tefetro-studios",
-    "https://instagram.com/tefetrostudios",
+  founders: [
+    { "@type": "Person", name: "Noel Syambi" },
+    { "@type": "Person", name: "Nicholas Wafula Wamalwa" },
   ],
 
-  founder: [
-    {
-      "@type": "Person",
-      name: "Noel Syambi",
-    },
-    {
-      "@type": "Person",
-      name: "Nicholas Wafula Wamalwa",
-    },
+  sameAs: [
+    "https://instagram.com/tefetrostudios",
+    "https://linkedin.com/company/tefetro-studio",
   ],
 
   address: {
@@ -151,11 +157,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={montserrat.variable}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={montserrat.variable} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -171,34 +173,27 @@ export default function RootLayout({
           "antialiased min-h-screen relative"
         )}
       >
-        {/* 🔥 GLOBAL AUTH WRAPPER */}
         <AuthProvider>
-
-          {/* Background */}
           <InteractiveBackground />
 
-          {/* Accessibility */}
           <a
             href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-teal-500 focus:text-white focus:rounded-lg focus:font-semibold focus:shadow-lg"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-teal-500 focus:text-white focus:rounded-lg"
           >
             Skip to main content
           </a>
 
-          {/* 🔥 LAYOUT WRAPPER - Handles conditional Navbar/Footer */}
           <LayoutWrapper>
-            {/* Main */}
             <main
               id="main-content"
-              className="relative z-10 flex-1 flex flex-col"
               role="main"
+              className="relative z-10 flex-1 flex flex-col"
             >
               <div className="content-layer flex-1 flex flex-col">
                 {children}
               </div>
             </main>
           </LayoutWrapper>
-
         </AuthProvider>
       </body>
     </html>

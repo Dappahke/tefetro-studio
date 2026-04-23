@@ -1,108 +1,186 @@
+// src/app/checkout/cancel/page.tsx
+
 import Link from 'next/link'
+import {
+  XCircle,
+  RotateCcw,
+  ShoppingBag,
+  ShieldCheck,
+  MessageCircle,
+} from 'lucide-react'
+
 import { verifySession } from '@/lib/dal'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 interface CancelPageProps {
   searchParams: {
     ref?: string
     reason?: string
+    productId?: string
+    addons?: string
   }
 }
 
-export default async function CheckoutCancelPage({ searchParams }: CancelPageProps) {
-  const session = await verifySession()
-  const { ref, reason } = await searchParams
+export default async function CheckoutCancelPage({
+  searchParams,
+}: CancelPageProps) {
+  await verifySession()
+
+  const {
+    ref,
+    productId,
+    addons,
+  } = searchParams
+
+  /* -------------------------------- */
+  /* Smart Retry Link                 */
+  /* -------------------------------- */
+  const retryUrl =
+    productId
+      ? `/checkout?productId=${productId}${
+          addons
+            ? `&addons=${addons}`
+            : ''
+        }`
+      : '/checkout'
 
   return (
-    <main className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full text-center">
-        {/* Cancel Icon */}
-        <div className="w-20 h-20 bg-[#F28C00]/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-[#F28C00]/20">
-          <svg className="w-10 h-10 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </div>
+    <main className="min-h-screen bg-[#FAF9F6]">
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <Breadcrumb
+          className="mb-8"
+          items={[
+            {
+              label:
+                'Checkout',
+              href: '/checkout',
+            },
+            {
+              label:
+                'Cancelled',
+              href: '/checkout/cancel',
+            },
+          ]}
+        />
 
-        {/* Heading */}
-        <h1 className="text-3xl font-bold text-[#0F4C5C] mb-3">
-          Payment Cancelled
-        </h1>
-        
-        <p className="text-[#1E1E1E]/70 mb-2">
-          Your payment was not completed. No charges have been made to your account.
-        </p>
-        
-        {ref && (
-          <p className="text-sm text-[#1E1E1E]/50 mb-8">
-            Reference: <code className="font-mono text-[#1F4E79]">{ref}</code>
-          </p>
-        )}
+        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Hero */}
+          <div className="px-6 md:px-10 py-10 text-center border-b border-slate-100 bg-gradient-to-b from-[#fff7ea] to-white">
+            <div className="mx-auto h-20 w-20 rounded-full bg-[#F28C00]/10 border border-[#F28C00]/20 flex items-center justify-center mb-5">
+              <XCircle className="w-10 h-10 text-[#F28C00]" />
+            </div>
 
-        {/* Help Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-soft border border-[#0F4C5C]/10 mb-8 text-left">
-          <h3 className="font-semibold text-[#0F4C5C] mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Why did this happen?
-          </h3>
-          
-          <ul className="space-y-3 text-sm text-[#1E1E1E]/70">
-            <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-[#6faa99] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              You closed the payment window before completing
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-[#6faa99] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              There was an issue with your payment method
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-[#6faa99] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              The payment session expired
-            </li>
-          </ul>
-        </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
+              Payment Cancelled
+            </h1>
 
-        {/* Action Buttons */}
-        <div className="space-y-3">
-          <Link
-            href="/checkout"
-            className="block w-full py-3 px-6 bg-[#F28C00] text-white font-semibold rounded-xl hover:bg-[#F28C00]/90 transition-all duration-200 shadow-lg shadow-[#F28C00]/20 hover:shadow-xl hover:shadow-[#F28C00]/30 hover:-translate-y-0.5"
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Try Again
-            </span>
-          </Link>
-          
-          <Link
-            href="/products"
-            className="block w-full py-3 px-6 bg-white text-[#0F4C5C] font-semibold rounded-xl border-2 border-[#0F4C5C]/20 hover:border-[#0F4C5C]/40 hover:bg-[#0F4C5C]/5 transition-all duration-200"
-          >
-            Back to Products
-          </Link>
-        </div>
+            <p className="mt-3 text-slate-600 max-w-xl mx-auto">
+              Your payment was not completed. No worries — no successful charge has been recorded on this order.
+            </p>
 
-        {/* Support Info */}
-        <div className="mt-8 p-4 bg-[#6faa99]/5 rounded-xl border border-[#6faa99]/10">
-          <p className="text-sm text-[#6faa99] flex items-center justify-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Need help?{' '}
-            <a href="mailto:support@tefetra.studio" className="underline font-medium hover:text-[#0F4C5C]">
-              Contact support
-            </a>
-          </p>
+            {ref && (
+              <p className="mt-4 text-sm text-slate-400">
+                Reference:{' '}
+                <span className="font-mono text-slate-600">
+                  {ref}
+                </span>
+              </p>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="p-6 md:p-10 grid md:grid-cols-[1fr_320px] gap-8">
+            {/* Left */}
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 mb-5">
+                Common Reasons
+              </h2>
+
+              <div className="space-y-4">
+                {[
+                  'You closed the payment window before completion.',
+                  'The payment session timed out.',
+                  'Your bank or card required extra approval.',
+                  'Temporary network interruption during payment.',
+                ].map(
+                  (
+                    item
+                  ) => (
+                    <div
+                      key={
+                        item
+                      }
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"
+                    >
+                      {item}
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Reassurance */}
+              <div className="mt-6 rounded-3xl border border-[#0F4C5C]/10 bg-[#0F4C5C]/5 p-5">
+                <div className="flex gap-3">
+                  <ShieldCheck className="w-5 h-5 text-[#0F4C5C] mt-0.5" />
+
+                  <div>
+                    <p className="font-semibold text-[#0F4C5C]">
+                      Your Selection Is Still Available
+                    </p>
+
+                    <p className="text-sm text-slate-600 mt-1">
+                      You can return to checkout anytime and complete payment securely.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right */}
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                <p className="font-semibold text-slate-900">
+                  What would you like to do next?
+                </p>
+
+                <div className="mt-5 space-y-3">
+                  <Link
+                    href={
+                      retryUrl
+                    }
+                    className="w-full h-12 rounded-2xl bg-[#F28C00] text-white font-semibold flex items-center justify-center gap-2 hover:bg-[#de8207] transition"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Retry Payment
+                  </Link>
+
+                  <Link
+                    href="/products"
+                    className="w-full h-12 rounded-2xl border border-slate-200 bg-white text-slate-800 font-semibold flex items-center justify-center gap-2 hover:bg-slate-50 transition"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    Browse Plans
+                  </Link>
+
+                  <a
+                    href="https://wa.me/254791939235"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full h-12 rounded-2xl border border-slate-200 bg-white text-slate-800 font-semibold flex items-center justify-center gap-2 hover:bg-slate-50 transition"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp Support
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                If money was deducted but payment failed, contact support with your payment reference for immediate assistance.
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   )
 }

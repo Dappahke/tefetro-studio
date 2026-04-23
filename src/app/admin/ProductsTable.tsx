@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { PriceDisplayCompact } from '@/components/products/PriceDisplayCompact'
+import { PriceDisplayCompact } from '@/components/checkout/PriceDisplayCompact'
 
 interface Product {
   id: string
@@ -105,7 +105,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
                     </Link>
                     <Link 
                       href={`/admin/products/${product.id}/addons`}
-                      className="p-2 text-neutral-400 hover:text-tefetra hover:bg-canvas rounded-lg transition-colors"
+                      className="p-2 text-neutral-400 hover:text-tefetro hover:bg-canvas rounded-lg transition-colors"
                       title="Manage Addons"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: '📦', roles: ['user', 'admin'] },
   { href: '/admin/projects', label: 'Projects', icon: '🏗️', roles: ['user', 'admin'] },
   { href: '/admin/products', label: 'Products', icon: '📐', roles: ['admin'] },
+  { href: '/admin/portfolio', label: 'Portfolio', icon: '🎨', roles: ['admin'] },
   { href: '/admin/users', label: 'Users', icon: '👥', roles: ['admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: '📈', roles: ['admin'] },
   { href: '/admin/activity', label: 'Activity Log', icon: '📜', roles: ['admin'] },
