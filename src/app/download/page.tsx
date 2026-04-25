@@ -1,303 +1,439 @@
+// src/app/download/page.tsx
+
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 
+type DownloadFile = {
+  id: string
+  title: string
+  filename: string
+  url: string
+  size?: number
+  type: 'main' | 'addon'
+  badge?: string
+}
+
+type DownloadResponse = {
+  success: boolean
+  productTitle: string
+  files: DownloadFile[]
+  expiresInMinutes: number
+}
+
 function DownloadContent() {
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token')
-  
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'expired'>('loading')
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
-  const [fileInfo, setFileInfo] = useState<{filename?: string, fileSize?: number, productTitle?: string}>({})
-  const [errorMessage, setErrorMessage] = useState('')
-  const [countdown, setCountdown] = useState(2)
+  const searchParams =
+    useSearchParams()
+
+  const token =
+    searchParams.get(
+      'token'
+    )
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState('')
+
+  const [data, setData] =
+    useState<DownloadResponse | null>(
+      null
+    )
 
   useEffect(() => {
     if (!token) {
-      setStatus('error')
-      setErrorMessage('No download token provided')
+      setLoading(false)
+      setError(
+        'Missing secure download token.'
+      )
       return
     }
 
-    fetchDownloadUrl(token)
+    loadDownloads()
   }, [token])
 
-  // Countdown timer for auto-download
-  useEffect(() => {
-    if (status === 'ready' && countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (status === 'ready' && countdown === 0 && downloadUrl) {
-      window.location.href = downloadUrl
-    }
-  }, [status, countdown, downloadUrl])
-
-  const fetchDownloadUrl = async (downloadToken: string) => {
+  async function loadDownloads() {
     try {
-      const res = await fetch(`/api/protected/downloads?token=${encodeURIComponent(downloadToken)}`)
-      const data = await res.json()
+      setLoading(true)
+
+      const res =
+        await fetch(
+          `/api/protected/downloads?token=${encodeURIComponent(
+            token!
+          )}`
+        )
+
+      const json =
+        await res.json()
 
       if (!res.ok) {
-        if (res.status === 410) {
-          setStatus('expired')
-        } else {
-          setStatus('error')
-          setErrorMessage(data.error || 'Failed to get download link')
-        }
-        return
+        throw new Error(
+          json.error ||
+            'Unable to load files'
+        )
       }
 
-      setDownloadUrl(data.downloadUrl)
-      setFileInfo({
-        filename: data.filename,
-        fileSize: data.fileSize,
-        productTitle: data.productTitle
-      })
-      setStatus('ready')
-      setCountdown(2)
-
-    } catch (err) {
-      setStatus('error')
-      setErrorMessage('Network error. Please try again.')
+      setData(json)
+    } catch (err: any) {
+      setError(
+        err.message ||
+          'Download failed'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleManualDownload = () => {
-    if (downloadUrl) {
-      window.location.href = downloadUrl
-    }
-  }
-
-  const formatFileSize = (bytes?: number) => {
+  function formatSize(
+    bytes?: number
+  ) {
     if (!bytes) return ''
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+
+    if (
+      bytes <
+      1024
+    )
+      return `${bytes} B`
+
+    if (
+      bytes <
+      1024 * 1024
+    )
+      return `${(
+        bytes / 1024
+      ).toFixed(1)} KB`
+
+    return `${(
+      bytes /
+      1024 /
+      1024
+    ).toFixed(1)} MB`
   }
+
+  function downloadFile(
+    url: string
+  ) {
+    window.open(
+      url,
+      '_blank'
+    )
+  }
+
+  /* ---------------------------------- */
+  /* Loading                            */
+  /* ---------------------------------- */
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-10 shadow-xl border border-slate-200 text-center">
+          <div className="w-20 h-20 rounded-full bg-[#0F4C5C]/10 mx-auto flex items-center justify-center mb-6 animate-pulse">
+            <svg
+              className="w-10 h-10 text-[#0F4C5C] animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+          </div>
+
+          <h1 className="text-2xl font-bold text-[#0F4C5C]">
+            Preparing Files
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            Verifying your secure purchase...
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  /* ---------------------------------- */
+  /* Error                              */
+  /* ---------------------------------- */
+
+  if (error || !data) {
+    return (
+      <main className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-10 shadow-xl border border-slate-200 text-center">
+          <h1 className="text-2xl font-bold text-[#0F4C5C]">
+            Download Error
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            {error}
+          </p>
+
+          <Link
+            href="/dashboard/orders"
+            className="mt-6 inline-flex h-12 px-6 rounded-2xl bg-[#F28C00] text-white font-semibold items-center justify-center"
+          >
+            Go to Orders
+          </Link>
+        </div>
+      </main>
+    )
+  }
+
+  const mainFiles =
+    data.files.filter(
+      (
+        item
+      ) =>
+        item.type ===
+        'main'
+    )
+
+  const addonFiles =
+    data.files.filter(
+      (
+        item
+      ) =>
+        item.type ===
+        'addon'
+    )
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full">
-        {/* Logo Section with Animation */}
-        <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="inline-block p-4 bg-white rounded-2xl shadow-sm border border-[#0F4C5C]/5">
-            <Image 
-              src="/images/tefetro-logo.png" 
-              alt="Tefetro Studios" 
-              width={120} 
-              height={40} 
-              className="mx-auto"
-              priority
+    <main className="min-h-screen bg-[#FAF9F6]">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Header */}
+
+        <div className="text-center mb-10">
+          <div className="inline-block bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-5">
+            <Image
+              src="/images/tefetro-logo.png"
+              alt="Tefetro"
+              width={140}
+              height={44}
             />
+          </div>
+
+          <h1 className="text-4xl font-bold text-[#0F4C5C]">
+            Your Files Are Ready
+          </h1>
+
+          <p className="mt-3 text-slate-500 max-w-2xl mx-auto">
+            Thank you for your purchase. Download your premium files below.
+          </p>
+
+          <div className="mt-5 inline-flex px-4 py-2 rounded-full bg-[#6faa99]/10 text-[#6faa99] text-sm font-medium">
+            Link expires in {data.expiresInMinutes} minutes
           </div>
         </div>
 
-        {/* Loading State */}
-        {status === 'loading' && (
-          <div className="animate-in fade-in duration-500">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-[#0F4C5C]/10">
-              <div className="w-20 h-20 bg-[#0F4C5C]/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-[#0F4C5C]/20 animate-pulse">
-                <svg className="w-10 h-10 text-[#0F4C5C] animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-[#0F4C5C] mb-3 text-center">Preparing Download...</h1>
-              <p className="text-[#1E1E1E]/60 text-center">Please wait while we verify your download link</p>
-              <div className="mt-6 flex justify-center">
-                <div className="w-32 h-1 bg-[#0F4C5C]/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#F28C00] rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Product Card */}
 
-        {/* Ready State */}
-        {status === 'ready' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Success Header */}
-            <div className="text-center mb-6">
-              <div className="w-24 h-24 bg-[#6faa99]/10 rounded-full flex items-center justify-center mx-auto border-2 border-[#6faa99]/20 animate-in zoom-in duration-300">
-                <svg className="w-12 h-12 text-[#6faa99]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-8">
+          <p className="text-sm text-slate-500">
+            Purchased Product
+          </p>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-[#0F4C5C]/10">
-              <h1 className="text-2xl font-bold text-[#0F4C5C] mb-2 text-center">Download Ready!</h1>
-              
-              {/* Countdown Badge */}
-              <div className="flex justify-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#F28C00]/10 rounded-full">
-                  <svg className="w-4 h-4 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-[#F28C00]">
-                    Auto-download in {countdown}s
-                  </span>
-                </div>
-              </div>
+          <h2 className="text-2xl font-bold text-[#0F4C5C] mt-1">
+            {data.productTitle}
+          </h2>
+        </div>
 
-              {/* Product Title */}
-              {fileInfo.productTitle && (
-                <div className="mb-4 p-3 bg-[#FAF9F6] rounded-xl border border-[#0F4C5C]/5">
-                  <p className="text-sm text-[#1E1E1E]/60 text-center">You purchased</p>
-                  <p className="font-semibold text-[#0F4C5C] text-center">{fileInfo.productTitle}</p>
-                </div>
+        {/* Main Files */}
+
+        <SectionTitle
+          title="Included Files"
+        />
+
+        <div className="grid md:grid-cols-2 gap-5 mb-10">
+          {mainFiles.map(
+            (
+              file
+            ) => (
+              <FileCard
+                key={
+                  file.id
+                }
+                file={
+                  file
+                }
+                onDownload={() =>
+                  downloadFile(
+                    file.url
+                  )
+                }
+                formatSize={
+                  formatSize
+                }
+              />
+            )
+          )}
+        </div>
+
+        {/* Addons */}
+
+        {addonFiles.length >
+          0 && (
+          <>
+            <SectionTitle
+              title="Selected Add-ons"
+            />
+
+            <div className="grid md:grid-cols-2 gap-5 mb-10">
+              {addonFiles.map(
+                (
+                  file
+                ) => (
+                  <FileCard
+                    key={
+                      file.id
+                    }
+                    file={
+                      file
+                    }
+                    onDownload={() =>
+                      downloadFile(
+                        file.url
+                      )
+                    }
+                    formatSize={
+                      formatSize
+                    }
+                  />
+                )
               )}
-
-              {/* File Card */}
-              <div className="bg-gradient-to-br from-[#FAF9F6] to-white rounded-xl p-5 mb-6 border-2 border-[#0F4C5C]/10 hover:border-[#0F4C5C]/20 transition-all duration-200">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-[#F28C00]/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-7 h-7 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#0F4C5C] truncate">{fileInfo.filename || 'Architectural Plan.pdf'}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-sm text-[#1E1E1E]/50">{formatFileSize(fileInfo.fileSize)}</p>
-                      <div className="w-1 h-1 bg-[#1E1E1E]/30 rounded-full"></div>
-                      <p className="text-xs text-[#6faa99]">Digital Download</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Download Button */}
-              <button
-                onClick={handleManualDownload}
-                className="w-full py-3.5 px-6 bg-[#F28C00] text-white font-semibold rounded-xl hover:bg-[#F28C00]/90 transition-all duration-200 shadow-lg shadow-[#F28C00]/20 hover:shadow-xl hover:shadow-[#F28C00]/30 hover:-translate-y-0.5 flex items-center justify-center gap-2 group"
-              >
-                <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download Now
-              </button>
-
-              {/* Expiry Notice */}
-              <div className="mt-6 bg-[#6faa99]/5 rounded-xl p-3 border border-[#6faa99]/10">
-                <p className="text-sm text-[#6faa99] flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  This download link will expire in 5 minutes
-                </p>
-              </div>
             </div>
-
-            {/* Dashboard Link */}
-            <div className="text-center mt-4">
-              <Link
-                href="/dashboard"
-                className="text-sm text-[#0F4C5C] hover:text-[#F28C00] transition-colors inline-flex items-center gap-1 group"
-              >
-                <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Dashboard
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Expired State */}
-        {status === 'expired' && (
-          <div className="animate-in fade-in duration-500">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-[#0F4C5C]/10">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-[#F28C00]/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-[#F28C00]/20">
-                  <svg className="w-12 h-12 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h1 className="text-2xl font-bold text-[#0F4C5C] mb-3">Link Expired</h1>
-                <p className="text-[#1E1E1E]/60 mb-8">Your download link has expired for security reasons</p>
-
-                <div className="space-y-3">
-                  <Link
-                    href="/dashboard"
-                    className="block w-full py-3.5 px-6 bg-[#F28C00] text-white font-semibold rounded-xl hover:bg-[#F28C00]/90 transition-all duration-200 shadow-lg shadow-[#F28C00]/20 hover:shadow-xl hover:shadow-[#F28C00]/30 hover:-translate-y-0.5"
-                  >
-                    Go to Dashboard
-                  </Link>
-                  <p className="text-sm text-[#1E1E1E]/50 pt-2">
-                    You can regenerate your download link from your order history
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {status === 'error' && (
-          <div className="animate-in fade-in duration-500">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-[#0F4C5C]/10">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-[#F28C00]/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-[#F28C00]/20">
-                  <svg className="w-12 h-12 text-[#F28C00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h1 className="text-2xl font-bold text-[#0F4C5C] mb-3">Download Failed</h1>
-                <p className="text-[#1E1E1E]/60 mb-8">{errorMessage}</p>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={() => token && fetchDownloadUrl(token)}
-                    className="block w-full py-3.5 px-6 bg-[#F28C00] text-white font-semibold rounded-xl hover:bg-[#F28C00]/90 transition-all duration-200 shadow-lg shadow-[#F28C00]/20 hover:shadow-xl hover:shadow-[#F28C00]/30 hover:-translate-y-0.5"
-                  >
-                    Try Again
-                  </button>
-                  <Link
-                    href="/dashboard"
-                    className="block w-full py-3.5 px-6 bg-white text-[#0F4C5C] font-semibold rounded-xl border-2 border-[#0F4C5C]/20 hover:border-[#0F4C5C]/40 hover:bg-[#0F4C5C]/5 transition-all duration-200"
-                  >
-                    Go to Dashboard
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+          </>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-[#1E1E1E]/50">
-            Need help?{' '}
-            <a href="mailto:support@tefetra.studio" className="text-[#0F4C5C] hover:text-[#F28C00] transition-colors font-medium">
-              Contact support
-            </a>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <Link
+            href="/dashboard/orders"
+            className="h-12 rounded-2xl bg-[#0F4C5C] text-white font-semibold flex items-center justify-center"
+          >
+            My Orders
+          </Link>
+
+          <Link
+            href="/products"
+            className="h-12 rounded-2xl border border-slate-200 bg-white text-slate-800 font-semibold flex items-center justify-center"
+          >
+            Continue Shopping
+          </Link>
+        </div>
+      </section>
+    </main>
+  )
+}
+
+function SectionTitle({
+  title,
+}: {
+  title: string
+}) {
+  return (
+    <h3 className="text-xl font-bold text-[#0F4C5C] mb-5">
+      {title}
+    </h3>
+  )
+}
+
+function FileCard({
+  file,
+  onDownload,
+  formatSize,
+}: {
+  file: DownloadFile
+  onDownload: () => void
+  formatSize: (
+    n?: number
+  ) => string
+}) {
+  return (
+    <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition">
+      <div className="flex gap-4 items-start">
+        <div className="w-14 h-14 rounded-2xl bg-[#F28C00]/10 flex items-center justify-center shrink-0">
+          <svg
+            className="w-7 h-7 text-[#F28C00]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L18 8.5V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        </div>
+
+        <div className="flex-1">
+          <p className="font-semibold text-[#0F4C5C]">
+            {file.title}
           </p>
+
+          <p className="text-sm text-slate-500 mt-1">
+            {file.filename}
+          </p>
+
+          <div className="mt-3 flex items-center gap-3 text-xs">
+            <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+              {file.type ===
+              'main'
+                ? 'Included'
+                : 'Addon'}
+            </span>
+
+            {file.badge && (
+              <span className="px-2 py-1 rounded-full bg-[#6faa99]/10 text-[#6faa99]">
+                {
+                  file.badge
+                }
+              </span>
+            )}
+
+            {file.size && (
+              <span className="text-slate-400">
+                {formatSize(
+                  file.size
+                )}
+              </span>
+            )}
+          </div>
         </div>
       </div>
+
+      <button
+        onClick={
+          onDownload
+        }
+        className="mt-5 w-full h-11 rounded-2xl bg-[#F28C00] text-white font-semibold hover:bg-[#e58300] transition"
+      >
+        Download File
+      </button>
     </div>
   )
 }
 
 export default function DownloadPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-[#0F4C5C]/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-[#0F4C5C]/20 animate-pulse">
-            <svg className="w-10 h-10 text-[#0F4C5C] animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          </div>
-          <p className="text-[#0F4C5C] font-medium">Loading...</p>
-          <div className="mt-4 w-32 h-1 bg-[#0F4C5C]/10 rounded-full overflow-hidden mx-auto">
-            <div className="h-full bg-[#F28C00] rounded-full animate-pulse" style={{ width: '60%' }}></div>
-          </div>
-        </div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
+          <p className="text-[#0F4C5C] font-semibold">
+            Loading...
+          </p>
+        </main>
+      }
+    >
       <DownloadContent />
     </Suspense>
   )

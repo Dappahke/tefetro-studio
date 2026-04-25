@@ -1,129 +1,78 @@
 // src/app/api/protected/downloads/route.ts
+// FINAL API RESPONSE FOR PREMIUM DOWNLOAD PAGE
 
 import { NextResponse } from 'next/server'
+import { createHash } from 'crypto'
+
 import { adminClient } from '@/lib/supabase/admin'
-import { verifySession } from '@/lib/dal'
-import {
-  limiters,
-  getIdentifier,
-} from '@/lib/security/rate-limiter'
 import { env } from '@/lib/env'
-import {
-  createHash,
-  timingSafeEqual,
-} from 'crypto'
 
-export const dynamic =
-  'force-dynamic'
-
+export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+type OrderRow = {
+  id: string
+  status: string
+  addons: any
+  product: {
+    title: string
+    file_path: string
+    addon_documents: any
+  } | null
+}
+
 /* ---------------------------------- */
-/* Token Format                       */
-/* orderId:expiresAt:signature        */
+/* Verify Token                       */
 /* ---------------------------------- */
 
-function verifyDownloadToken(
+function verifyToken(
   token: string
-):
-  | {
-      orderId: string
-      expiresAt: number
-      valid: boolean
-    }
-  | null {
-  try {
-    const parts =
-      token.split(':')
+) {
+  const parts =
+    token.split(':')
 
-    if (
-      parts.length !== 3
-    )
-      return null
-
-    const [
-      orderId,
-      expiresAtStr,
-      signature,
-    ] = parts
-
-    if (
-      !orderId ||
-      !expiresAtStr ||
-      !signature
-    )
-      return null
-
-    const expiresAt =
-      parseInt(
-        expiresAtStr,
-        10
-      )
-
-    if (
-      isNaN(
-        expiresAt
-      )
-    )
-      return null
-
-    if (
-      Date.now() >
-      expiresAt
-    ) {
-      return {
-        orderId,
-        expiresAt,
-        valid: false,
-      }
-    }
-
-    const expected =
-      createHash(
-        'sha256'
-      )
-        .update(
-          `${orderId}:${expiresAtStr}:${env.server.DOWNLOAD_SECRET}`
-        )
-        .digest(
-          'hex'
-        )
-
-    const a =
-      Buffer.from(
-        signature
-      )
-
-    const b =
-      Buffer.from(
-        expected
-      )
-
-    if (
-      a.length !==
-      b.length
-    )
-      return null
-
-    const valid =
-      timingSafeEqual(
-        a,
-        b
-      )
-
-    return {
-      orderId,
-      expiresAt,
-      valid,
-    }
-  } catch (
-    error
-  ) {
-    console.error(
-      'Token verify failed:',
-      error
-    )
+  if (
+    parts.length !== 3
+  )
     return null
+
+  const [
+    orderId,
+    expiresRaw,
+    signature,
+  ] = parts
+
+  const expiresAt =
+    Number(
+      expiresRaw
+    )
+
+  if (
+    Date.now() >
+    expiresAt
+  )
+    return null
+
+  const expected =
+    createHash(
+      'sha256'
+    )
+      .update(
+        `${orderId}:${expiresAt}:${env.server.DOWNLOAD_SECRET}`
+      )
+      .digest(
+        'hex'
+      )
+
+  if (
+    expected !==
+    signature
+  )
+    return null
+
+  return {
+    orderId,
+    expiresAt,
   }
 }
 
@@ -135,128 +84,21 @@ export async function GET(
   request: Request
 ) {
   try {
-    /* ------------------------------ */
-    /* Query Params                   */
-    /* ------------------------------ */
-
     const url =
       new URL(
         request.url
       )
 
-    const rawToken =
+    const token =
       url.searchParams.get(
         'token'
       )
 
-    if (
-      !rawToken
-    ) {
+    if (!token) {
       return NextResponse.json(
         {
           error:
             'Missing token',
-        },
-        {
-          status: 400,
-        }
-      )
-    }
-
-    const token =
-      decodeURIComponent(
-        rawToken
-      )
-
-    /* ------------------------------ */
-    /* Rate Limit                     */
-    /* ------------------------------ */
-
-    try {
-      const identifier =
-        getIdentifier(
-          request
-        )
-
-      const result =
-        await limiters.download.check(
-          identifier
-        )
-
-      if (
-        !result.success
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              'Too many attempts. Please try again later.',
-          },
-          {
-            status: 429,
-          }
-        )
-      }
-    } catch {
-      console.warn(
-        'Rate limiter unavailable'
-      )
-    }
-
-    /* ------------------------------ */
-    /* Verify Token                   */
-    /* ------------------------------ */
-
-    const parsed =
-      verifyDownloadToken(
-        token
-      )
-
-    if (
-      !parsed
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Invalid token',
-        },
-        {
-          status: 403,
-        }
-      )
-    }
-
-    if (
-      !parsed.valid
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Download link expired',
-          orderId:
-            parsed.orderId,
-          canRegenerate:
-            true,
-        },
-        {
-          status: 410,
-        }
-      )
-    }
-
-    /* ------------------------------ */
-    /* Auth Required                  */
-    /* ------------------------------ */
-
-    const session =
-      await verifySession()
-
-    if (
-      !session
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Authentication required',
         },
         {
           status: 401,
@@ -264,14 +106,30 @@ export async function GET(
       )
     }
 
-    /* ------------------------------ */
-    /* Fetch Order                    */
-    /* ------------------------------ */
+    const verified =
+      verifyToken(
+        token
+      )
+
+    if (!verified) {
+      return NextResponse.json(
+        {
+          error:
+            'Invalid or expired token',
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    /* ---------------------------------- */
+    /* Load Order                         */
+    /* ---------------------------------- */
 
     const {
-      data: order,
-      error:
-        orderError,
+      data,
+      error,
     } =
       await adminClient
         .from(
@@ -280,30 +138,24 @@ export async function GET(
         .select(
           `
           id,
-          user_id,
           status,
-          expires_at,
-          product_id,
-          product:products!product_id(
-            id,
+          addons,
+          product:products(
             title,
-            file_path
+            file_path,
+            addon_documents
           )
         `
         )
         .eq(
           'id',
-          parsed.orderId
-        )
-        .eq(
-          'user_id',
-          session.user.id
+          verified.orderId
         )
         .single()
 
     if (
-      orderError ||
-      !order
+      error ||
+      !data
     ) {
       return NextResponse.json(
         {
@@ -316,10 +168,8 @@ export async function GET(
       )
     }
 
-    /* ------------------------------ */
-    /* Status Fix                     */
-    /* Allow paid OR completed        */
-    /* ------------------------------ */
+    const order =
+      data as unknown as OrderRow
 
     if (
       order.status !==
@@ -329,7 +179,8 @@ export async function GET(
     ) {
       return NextResponse.json(
         {
-          error: `Order is ${order.status}. Download unavailable.`,
+          error:
+            'Order not eligible',
         },
         {
           status: 403,
@@ -337,56 +188,19 @@ export async function GET(
       )
     }
 
-    /* ------------------------------ */
-    /* Expiry Check                   */
-    /* ------------------------------ */
-
-    if (
-      order.expires_at
-    ) {
-      const dbExpiry =
-        new Date(
-          order.expires_at
-        )
-
-      if (
-        dbExpiry <
-        new Date()
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              'Download link expired',
-            orderId:
-              order.id,
-            canRegenerate:
-              true,
-          },
-          {
-            status: 410,
-          }
-        )
-      }
-    }
-
-    /* ------------------------------ */
-    /* File Path                      */
-    /* ------------------------------ */
-
-      const product = Array.isArray(order.product)
-        ? order.product[0]
+    const product =
+      Array.isArray(
+        order.product
+      )
+        ? order
+            .product[0]
         : order.product
 
-      const filePath =
-        product?.file_path
-
-    if (
-      !filePath
-    ) {
+    if (!product) {
       return NextResponse.json(
         {
           error:
-            'No file available',
+            'Missing product',
         },
         {
           status: 404,
@@ -394,79 +208,148 @@ export async function GET(
       )
     }
 
-    /* ------------------------------ */
-    /* Signed URL                     */
-    /* ------------------------------ */
+    const files: any[] =
+      []
 
-    const {
-      data:
-        signedData,
-      error:
-        signedError,
-    } =
-      await adminClient.storage
-        .from(
-          'drawings'
-        )
-        .createSignedUrl(
-          filePath,
-          60 * 5
-        )
+    /* ---------------------------------- */
+    /* Main Product File                  */
+    /* ---------------------------------- */
 
     if (
-      signedError ||
-      !signedData
+      product.file_path
     ) {
-      return NextResponse.json(
-        {
-          error:
-            'Unable to generate secure file link',
-        },
-        {
-          status: 500,
-        }
-      )
+      const signed =
+        await adminClient.storage
+          .from(
+            'drawings'
+          )
+          .createSignedUrl(
+            product.file_path,
+            300
+          )
+
+      if (
+        signed.data
+          ?.signedUrl
+      ) {
+        files.push({
+          id: 'main',
+          title:
+            product.title,
+          filename:
+            extractFilename(
+              product.file_path
+            ),
+          url: signed
+            .data
+            .signedUrl,
+          type: 'main',
+        })
+      }
     }
 
-    const filename =
-      filePath
-        .split('/')
-        .pop() ||
-      'Architectural-Plan.pdf'
+    /* ---------------------------------- */
+    /* Addons                             */
+    /* ---------------------------------- */
+
+    const selected =
+      Array.isArray(
+        order.addons
+      )
+        ? order.addons
+        : []
+
+    const docs =
+      product
+        .addon_documents ||
+      {}
+
+    for (const addonId of selected) {
+      const doc =
+        docs[
+          addonId
+        ]
+
+      if (!doc)
+        continue
+
+      const signed =
+        await adminClient.storage
+          .from(
+            'drawings'
+          )
+          .createSignedUrl(
+            doc.path,
+            300
+          )
+
+      if (
+        signed.data
+          ?.signedUrl
+      ) {
+        files.push({
+          id:
+            addonId,
+          title:
+            doc.title ||
+            addonId,
+          filename:
+            extractFilename(
+              doc.path
+            ),
+          url: signed
+            .data
+            .signedUrl,
+          type: 'addon',
+          badge:
+            'Selected',
+        })
+      }
+    }
 
     return NextResponse.json(
       {
         success: true,
-        orderId:
-          order.id,
-        filename,
-        fileSize: null,
-        mimeType:
-          'application/pdf',
-        expiresIn: 300,
-        downloadUrl:
-          signedData.signedUrl,
         productTitle:
-          product?.title ||
-          'Architectural Plan',
+          product.title,
+        expiresInMinutes: 5,
+        files,
       }
     )
   } catch (
     error
   ) {
     console.error(
-      'Download route error:',
       error
     )
 
     return NextResponse.json(
       {
         error:
-          'Internal server error',
+          'Download failed',
       },
       {
         status: 500,
       }
     )
   }
+}
+
+/* ---------------------------------- */
+/* Helpers                            */
+/* ---------------------------------- */
+
+function extractFilename(
+  path: string
+) {
+  const split =
+    path.split('/')
+
+  return (
+    split[
+      split.length -
+        1
+    ] ||
+    'file.pdf'
+  )
 }

@@ -10,16 +10,14 @@ import { AddonSelector } from './AddonSelector'
 import { CheckoutForm } from './CheckoutForm'
 import { OrderSummary } from './OrderSummary'
 
-import type {
-  CheckoutAddon,
-  CheckoutProduct,
-} from '@/types/checkout'
+import type { CheckoutAddon, CheckoutProduct } from '@/types/checkout'
 
 interface CheckoutClientProps {
   product: CheckoutProduct
   addons: CheckoutAddon[]
   initialSelectedIds: string[]
   userEmail: string
+  userId?: string // Added for webhook metadata
 }
 
 export function CheckoutClient({
@@ -27,102 +25,40 @@ export function CheckoutClient({
   addons,
   initialSelectedIds,
   userEmail,
+  userId,
 }: CheckoutClientProps) {
   const router = useRouter()
 
-  const [selectedIds, setSelectedIds] =
-    useState<string[]>(
-      initialSelectedIds
-    )
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds)
 
   /* Sync URL */
   useEffect(() => {
-    const params =
-      new URLSearchParams()
+    const params = new URLSearchParams()
+    params.set('productId', product.id)
 
-    params.set(
-      'productId',
-      product.id
-    )
-
-    if (
-      selectedIds.length >
-      0
-    ) {
-      params.set(
-        'addons',
-        selectedIds.join(
-          ','
-        )
-      )
+    if (selectedIds.length > 0) {
+      params.set('addons', selectedIds.join(','))
     }
 
-    router.replace(
-      `/checkout?${params.toString()}`,
-      { scroll: false }
-    )
-  }, [
-    selectedIds,
-    product.id,
-    router,
-  ])
+    router.replace(`/checkout?${params.toString()}`, { scroll: false })
+  }, [selectedIds, product.id, router])
 
   /* Selected addons */
-  const selectedAddons =
-    useMemo(() => {
-      return addons.filter(
-        (addon) =>
-          selectedIds.includes(
-            addon.id
-          )
-      )
-    }, [
-      addons,
-      selectedIds,
-    ])
+  const selectedAddons = useMemo(() => {
+    return addons.filter((addon) => selectedIds.includes(addon.id))
+  }, [addons, selectedIds])
 
   /* Totals */
-  const basePrice =
-    Number(
-      product.price || 0
-    )
+  const basePrice = Number(product.price || 0)
+  const addonsTotal = selectedAddons.reduce(
+    (sum, addon) => sum + Number(addon.price || 0),
+    0
+  )
+  const total = basePrice + addonsTotal
 
-  const addonsTotal =
-    selectedAddons.reduce(
-      (
-        sum,
-        addon
-      ) =>
-        sum +
-        Number(
-          addon.price || 0
-        ),
-      0
-    )
-
-  const total =
-    basePrice +
-    addonsTotal
-
-  function toggleAddon(
-    addonId: string
-  ) {
-    setSelectedIds(
-      (prev) =>
-        prev.includes(
-          addonId
-        )
-          ? prev.filter(
-              (
-                id
-              ) =>
-                id !==
-                addonId
-            )
-          : [
-              ...prev,
-              addonId,
-            ]
+  function toggleAddon(addonId: string) {
+    setSelectedIds((prev) =>
+      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]
     )
   }
 
@@ -130,16 +66,11 @@ export function CheckoutClient({
     <div className="grid lg:grid-cols-[1fr_420px] gap-8 xl:gap-12">
       {/* LEFT */}
       <div className="space-y-6">
-        {addons.length >
-          0 && (
+        {addons.length > 0 && (
           <AddonSelector
             addons={addons}
-            selected={
-              selectedIds
-            }
-            onToggle={
-              toggleAddon
-            }
+            selected={selectedIds}
+            onToggle={toggleAddon}
           />
         )}
 
@@ -159,19 +90,12 @@ export function CheckoutClient({
           </div>
 
           <CheckoutForm
-            productId={
-              product.id
-            }
-            productTitle={
-              product.title
-            }
+            productId={product.id}
+            productTitle={product.title}
             total={total}
-            selectedAddons={
-              selectedAddons
-            }
-            userEmail={
-              userEmail
-            }
+            selectedAddons={selectedAddons}
+            userEmail={userEmail}
+            userId={userId} // Passed to form for webhook metadata
           />
         </div>
       </div>
@@ -179,18 +103,10 @@ export function CheckoutClient({
       {/* RIGHT */}
       <aside className="lg:sticky lg:top-24 h-fit">
         <OrderSummary
-          product={
-            product
-          }
-          selectedAddons={
-            selectedAddons
-          }
-          basePrice={
-            basePrice
-          }
-          addonsTotal={
-            addonsTotal
-          }
+          product={product}
+          selectedAddons={selectedAddons}
+          basePrice={basePrice}
+          addonsTotal={addonsTotal}
           total={total}
         />
       </aside>

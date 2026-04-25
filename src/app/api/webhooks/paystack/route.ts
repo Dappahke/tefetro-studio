@@ -14,40 +14,23 @@ export const revalidate = 0
 /* Helpers                            */
 /* ---------------------------------- */
 
-function signPayload(
-  payload: string,
-  secret: string
-) {
+function signPayload(payload: string, secret: string) {
   return crypto
-    .createHmac(
-      'sha512',
-      secret.trim()
-    )
+    .createHmac('sha512', secret.trim())
     .update(payload)
     .digest('hex')
 }
 
-function safeCompare(
-  a: string,
-  b: string
-) {
+function safeCompare(a: string, b: string) {
   try {
-    const aa =
-      Buffer.from(a)
-    const bb =
-      Buffer.from(b)
+    const aa = Buffer.from(a)
+    const bb = Buffer.from(b)
 
-    if (
-      aa.length !==
-      bb.length
-    ) {
+    if (aa.length !== bb.length) {
       return false
     }
 
-    return crypto.timingSafeEqual(
-      aa,
-      bb
-    )
+    return crypto.timingSafeEqual(aa, bb)
   } catch {
     return false
   }
@@ -57,326 +40,105 @@ function safeCompare(
 /* POST                               */
 /* ---------------------------------- */
 
-export async function POST(
-  request: Request
-) {
+export async function POST(request: Request) {
   try {
-    /* ---------------------------------- */
-    /* Read Headers (Vercel Safe)         */
-    /* ---------------------------------- */
-
-    const hdr =
-      headers()
+    /* Headers */
+    const hdr = headers()
 
     const signature =
-      hdr.get(
-        'x-paystack-signature'
-      ) ||
-      hdr.get(
-        'X-Paystack-Signature'
-      ) ||
-      hdr.get(
-        'X-PAYSTACK-SIGNATURE'
-      ) ||
+      hdr.get('x-paystack-signature') ||
+      hdr.get('X-Paystack-Signature') ||
+      hdr.get('X-PAYSTACK-SIGNATURE') ||
       ''
 
-    const secret =
-      env.server
-        .PAYSTACK_SECRET_KEY
-        ?.trim() || ''
+    const secret = env.server.PAYSTACK_SECRET_KEY?.trim() || ''
+    const rawBody = await request.text()
 
-    const rawBody =
-      await request.text()
+    /* Debug Logs */
+    console.log('[PAYSTACK WEBHOOK]', {
+      hasSignature: !!signature,
+      signaturePrefix: signature.slice(0, 12),
+      secretExists: !!secret,
+      secretPrefix: secret.slice(0, 10),
+      bodyLength: rawBody.length,
+    })
 
-    /* ---------------------------------- */
-    /* Debug Logs                         */
-    /* ---------------------------------- */
-
-    console.log(
-      '[PAYSTACK]',
-      {
-        hasSignature:
-          !!signature,
-        signaturePrefix:
-          signature.slice(
-            0,
-            12
-          ),
-        secretExists:
-          !!secret,
-        secretPrefix:
-          secret.slice(
-            0,
-            10
-          ),
-        bodyLength:
-          rawBody.length,
-        headerKeys:
-          Array.from(
-            hdr.keys()
-          ),
-      }
-    )
-
-    /* ---------------------------------- */
-    /* Validate Inputs                    */
-    /* ---------------------------------- */
-
-    if (
-      !signature
-    ) {
-      console.error(
-        '[PAYSTACK] Missing signature header'
-      )
-
-      return NextResponse.json(
-        {
-          error:
-            'Unauthorized',
-        },
-        {
-          status: 401,
-        }
-      )
+    /* Validate Inputs */
+    if (!signature) {
+      console.error('[PAYSTACK] Missing signature header')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (
-      !secret
-    ) {
-      console.error(
-        '[PAYSTACK] Missing PAYSTACK_SECRET_KEY'
-      )
-
-      return NextResponse.json(
-        {
-          error:
-            'Server misconfigured',
-        },
-        {
-          status: 500,
-        }
-      )
+    if (!secret) {
+      console.error('[PAYSTACK] Missing PAYSTACK_SECRET_KEY')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
     }
 
-    /* ---------------------------------- */
-    /* Signature Check                    */
-    /* ---------------------------------- */
-
-    const expected =
-      signPayload(
-        rawBody,
-        secret
-      )
-
-    const valid =
-      safeCompare(
-        signature,
-        expected
-      )
+    /* Signature Check */
+    const expected = signPayload(rawBody, secret)
+    const valid = safeCompare(signature, expected)
 
     if (!valid) {
-      console.error(
-        '[PAYSTACK] Signature mismatch',
-        {
-          received:
-            signature.slice(
-              0,
-              12
-            ),
-          expected:
-            expected.slice(
-              0,
-              12
-            ),
-        }
-      )
-
-      return NextResponse.json(
-        {
-          error:
-            'Unauthorized',
-        },
-        {
-          status: 401,
-        }
-      )
+      console.error('[PAYSTACK] Signature mismatch', {
+        received: signature.slice(0, 12),
+        expected: expected.slice(0, 12),
+      })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    /* ---------------------------------- */
-    /* Parse Payload                      */
-    /* ---------------------------------- */
+    /* Parse Payload */
+    const body = JSON.parse(rawBody)
+    const { event, data } = body
 
-    const body =
-      JSON.parse(
-        rawBody
-      )
-
-    const {
+    console.log('[PAYSTACK] Verified', {
       event,
-      data,
-    } = body
+      reference: data?.reference,
+    })
 
-    console.log(
-      '[PAYSTACK] Verified',
-      {
-        event,
-        reference:
-          data?.reference,
-      }
-    )
-
-    /* ---------------------------------- */
-    /* Only Success Charge                */
-    /* ---------------------------------- */
-
-    if (
-      event !==
-      'charge.success'
-    ) {
-      return NextResponse.json(
-        {
-          received: true,
-        }
-      )
+    /* Only handle successful charges */
+    if (event !== 'charge.success') {
+      return NextResponse.json({ received: true })
     }
 
-    const reference =
-      data.reference
+    const reference = data.reference
+    const email = data.customer?.email || null
+    const total = Number(data.amount || 0) / 100
+    const metadata = data.metadata || {}
 
-    const email =
-      data.customer
-        ?.email ||
-      null
+    /* Duplicate Check */
+    const { data: existing } = await adminClient
+      .from('orders')
+      .select('id')
+      .eq('payment_ref', reference)
+      .maybeSingle()
 
-    const total =
-      Number(
-        data.amount ||
-          0
-      ) / 100
-
-    const metadata =
-      data.metadata ||
-      {}
-
-    /* ---------------------------------- */
-    /* Duplicate Check                    */
-    /* ---------------------------------- */
-
-    const {
-      data:
-        existing,
-    } =
-      await adminClient
-        .from(
-          'orders'
-        )
-        .select(
-          'id'
-        )
-        .eq(
-          'payment_ref',
-          reference
-        )
-        .maybeSingle()
-
-    if (
-      existing
-    ) {
-      console.log(
-        '[PAYSTACK] Duplicate ignored',
-        reference
-      )
-
-      return NextResponse.json(
-        {
-          received: true,
-        }
-      )
+    if (existing) {
+      console.log('[PAYSTACK] Duplicate ignored', reference)
+      return NextResponse.json({ received: true })
     }
 
-    /* ---------------------------------- */
-    /* Insert Order                       */
-    /* ---------------------------------- */
+    /* Insert Order */
+    const { error: insertError } = await adminClient.from('orders').insert({
+      user_id: metadata.user_id || null,
+      email,
+      product_id: metadata.product_id || null,
+      addons: metadata.addons || [],
+      total,
+      payment_ref: reference,
+      status: 'paid',
+      metadata: data,
+    })
 
-    const {
-      error:
-        insertError,
-    } =
-      await adminClient
-        .from(
-          'orders'
-        )
-        .insert({
-          user_id:
-            metadata.user_id ||
-            null,
-
-          email,
-
-          product_id:
-            metadata.product_id ||
-            null,
-
-          addons:
-            metadata.addons ||
-            [],
-
-          total,
-
-          payment_ref:
-            reference,
-
-          status:
-            'paid',
-
-          metadata,
-        })
-
-    if (
-      insertError
-    ) {
-      console.error(
-        '[PAYSTACK] Insert failed',
-        insertError
-      )
-
-      return NextResponse.json(
-        {
-          error:
-            'Insert failed',
-        },
-        {
-          status: 500,
-        }
-      )
+    if (insertError) {
+      console.error('[PAYSTACK] Insert failed', insertError)
+      return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
     }
 
-    console.log(
-      '[PAYSTACK] Order created',
-      reference
-    )
+    console.log('[PAYSTACK] Order created', reference)
 
-    return NextResponse.json(
-      {
-        received: true,
-      }
-    )
-  } catch (
-    error
-  ) {
-    console.error(
-      '[PAYSTACK] Fatal',
-      error
-    )
-
-    return NextResponse.json(
-      {
-        error:
-          'Internal server error',
-      },
-      {
-        status: 500,
-      }
-    )
+    return NextResponse.json({ received: true })
+  } catch (error) {
+    console.error('[PAYSTACK] Fatal', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

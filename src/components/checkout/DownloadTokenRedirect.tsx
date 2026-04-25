@@ -1,4 +1,3 @@
-// NEW FILE
 // src/components/checkout/DownloadTokenRedirect.tsx
 
 'use client'

@@ -1,114 +1,81 @@
-// NEW FILE
 // src/app/api/paystack/verify/route.ts
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export async function GET(
-  req: NextRequest
-) {
+export const dynamic = 'force-dynamic'
+
+export async function GET(req: Request) {
   try {
-    const reference =
-      req.nextUrl.searchParams.get(
-        'reference'
-      )
+    const { searchParams } = new URL(req.url)
+    const reference = searchParams.get('reference')
 
     if (!reference) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Missing payment reference',
-        },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Reference required' }, { status: 400 })
     }
 
-    const secret =
-      process.env.PAYSTACK_SECRET_KEY
-
+    const secret = process.env.PAYSTACK_SECRET_KEY?.trim()
     if (!secret) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Missing PAYSTACK_SECRET_KEY',
-        },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Misconfigured' }, { status: 500 })
     }
 
-    const response =
-      await fetch(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        {
-          method:
-            'GET',
-          headers: {
-            Authorization: `Bearer ${secret}`,
-            'Content-Type':
-              'application/json',
-          },
-          cache: 'no-store',
-        }
-      )
-
-    const data =
-      await response.json()
-
-    if (
-      !data.status ||
-      !data.data
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            data.message ||
-            'Unable to verify payment',
-        },
-        { status: 400 }
-      )
-    }
-
-    const payment =
-      data.data
-
-    const isPaid =
-      payment.status ===
-      'success'
-
-    return NextResponse.json(
+    // Verify with Paystack directly
+    const paystackRes = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
       {
-        success:
-          isPaid,
-        reference:
-          payment.reference,
-        amount:
-          Number(
-            payment.amount
-          ) / 100,
-        currency:
-          payment.currency,
-        paid_at:
-          payment.paid_at,
-        customer:
-          payment.customer,
-        metadata:
-          payment.metadata,
-        gateway_response:
-          payment.gateway_response,
-        status:
-          payment.status,
+        headers: { Authorization: `Bearer ${secret}` },
       }
     )
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          'Payment verification failed',
-      },
-      { status: 500 }
-    )
+
+    const paystackData = await paystackRes.json()
+
+    if (!paystackData.status || paystackData.data?.status !== 'success') {
+      return NextResponse.json(
+        { error: 'Payment not verified', paystackMessage: paystackData.message },
+        { status: 400 }
+      )
+    }
+
+    const data = paystackData.data
+    const metadata = data.metadata || {}
+
+    const supabase = await createClient()
+
+    // Check if order already exists
+    const { data: existing } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('payment_ref', reference)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ status: 'already_exists', orderId: existing.id })
+    }
+
+    // Create order from Paystack data
+    const { data: inserted, error: insertError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: metadata.user_id || null,
+        email: data.customer?.email,
+        product_id: metadata.product_id || null,
+        addons: metadata.addons || [],
+        total: data.amount / 100,
+        payment_ref: reference,
+        status: 'paid',
+        metadata: data,
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('[VERIFY] Insert failed:', insertError)
+      return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    }
+
+    return NextResponse.json({ status: 'created', orderId: inserted.id })
+  } catch (error: any) {
+    console.error('[VERIFY] Error:', error.message || error)
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 })
   }
 }

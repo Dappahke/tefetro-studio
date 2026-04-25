@@ -1,4 +1,3 @@
-// REWRITE FILE
 // src/app/checkout/page.tsx
 
 import { notFound, redirect } from 'next/navigation'
@@ -9,10 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { CheckoutClient } from '@/components/checkout/CheckoutClient'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
-import type {
-  CheckoutAddon,
-  CheckoutProduct,
-} from '@/types/checkout'
+import type { CheckoutAddon, CheckoutProduct } from '@/types/checkout'
 
 interface CheckoutPageProps {
   searchParams: {
@@ -21,173 +17,107 @@ interface CheckoutPageProps {
   }
 }
 
-export default async function CheckoutPage({
-  searchParams,
-}: CheckoutPageProps) {
-  const session =
-    await verifySession()
+export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
+  const session = await verifySession()
+  if (!session) redirect('/login?redirectTo=/checkout')
 
-  if (!session) {
-    redirect(
-      '/login?redirectTo=/checkout'
-    )
-  }
+  const productId = searchParams.productId
+  if (!productId) redirect('/products')
 
-  const productId =
-    searchParams.productId
+  const supabase = await createClient()
 
-  if (!productId) {
-    redirect('/products')
-  }
-
-  const supabase =
-    await createClient()
-
-  /* Product */
-  const {
-    data: productRow,
-  } = await supabase
+  /* ── Product ── */
+  const { data: productRow, error: productError } = await supabase
     .from('products')
     .select('*')
-    .eq(
-      'id',
-      productId
-    )
+    .eq('id', productId)
     .single()
 
-  if (!productRow) {
-    notFound()
+  if (productError || !productRow) notFound()
+
+  const product: CheckoutProduct = {
+    id: productRow.id,
+    slug: productRow.slug ?? null,
+    title: productRow.title,
+    description: productRow.description ?? null,
+    price: Number(productRow.price || 0),
+    category: productRow.category ?? null,
+    file_path: productRow.file_path ?? null,
+    elevation_images: productRow.elevation_images ?? [],
+    bedrooms: productRow.bedrooms ?? null,
+    bathrooms: productRow.bathrooms ?? null,
+    floors: productRow.floors ?? null,
+    plinth_area: productRow.plinth_area ?? null,
   }
 
-  const product: CheckoutProduct =
-    {
-      id: productRow.id,
-      slug:
-        productRow.slug ??
-        null,
-      title:
-        productRow.title,
-      description:
-        productRow.description ??
-        null,
-      price: Number(
-        productRow.price ||
-          0
-      ),
-      category:
-        productRow.category ??
-        null,
-      file_path:
-        productRow.file_path ??
-        null,
-      elevation_images:
-        productRow.elevation_images ??
-        [],
-      bedrooms:
-        productRow.bedrooms ??
-        null,
-      bathrooms:
-        productRow.bathrooms ??
-        null,
-      floors:
-        productRow.floors ??
-        null,
-      plinth_area:
-        productRow.plinth_area ??
-        null,
-    }
-
-  /* Addons */
-  const {
-    data: addonRows,
-  } = await supabase
-    .from(
-      'product_addons'
-    )
+  /* ── Addons (via junction table) ── */
+  const { data: rows, error: addonError } = await supabase
+    .from('product_addons')
     .select(
       `
       addon_id,
       price_override,
-      addons (*)
+      document_path,
+      addons (
+        id, name, price, type, description,
+        badge, featured, sort_order, icon,
+        active, requires_pdf, short_pitch
+      )
     `
     )
-    .eq(
-      'product_id',
-      productId
-    )
+    .eq('product_id', productId)
 
-  const addons: CheckoutAddon[] =
-    (
-      addonRows ||
-      []
-    ).map(
-      (
-        row: any
-      ) => ({
-        id:
-          row.addons.id,
-        name:
-          row.addons
-            .name ||
-          'Addon',
-        price: Number(
-          row.price_override ??
-            row
-              .addons
-              .price ??
-            0
-        ),
+  if (addonError) {
+    console.error('Addons fetch error:', addonError.message)
+  }
+
+  const safeRows = !rows ? [] : rows
+
+  const addons: CheckoutAddon[] = safeRows
+    .map((row: any) => {
+      const a = row?.addons as {
+        id: string
+        name: string | null
+        price: number | null
+        type: string | null
+        description: string | null
+        badge: string | null
+        featured: boolean | null
+        sort_order: number | null
+        icon: string | null
+        active: boolean | null
+        requires_pdf: boolean | null
+        short_pitch: string | null
+      } | null | undefined
+
+      if (!a || a.active === false) return null
+
+      const mapped: CheckoutAddon = {
+        id: a.id,
+        name: a.name || 'Addon',
+        price: Number(row.price_override ?? a.price ?? 0),
         type:
-          row.addons
-            .type ===
-            'service'
+          a.type === 'service'
             ? 'service'
-            : row
-                .addons
-                .type ===
-              'digital'
+            : a.type === 'digital'
             ? 'digital'
             : 'drawing',
-        description:
-          row.addons
-            .description ??
-          null,
-        badge:
-          row.addons
-            .badge ??
-          null,
-        featured:
-          row.addons
-            .featured ??
-          false,
-        sort_order:
-          row.addons
-            .sort_order ??
-          100,
-        icon:
-          row.addons
-            .icon ??
-          null,
-        active:
-          row.addons
-            .active ??
-          true,
-        requires_pdf:
-          row.addons
-            .requires_pdf ??
-          false,
-        short_pitch:
-          row.addons
-            .short_pitch ??
-          null,
-      })
-    )
+        description: a.description ?? null,
+        badge: a.badge ?? null,
+        featured: a.featured ?? false,
+        sort_order: a.sort_order ?? 100,
+        icon: a.icon ?? null,
+        active: a.active ?? true,
+        requires_pdf: a.requires_pdf ?? false,
+        short_pitch: a.short_pitch ?? null,
+      }
 
-  const initialSelectedIds =
-    searchParams.addons
-      ?.split(',')
-      .filter(Boolean) ||
-    []
+      return mapped
+    })
+    .filter((item): item is CheckoutAddon => item !== null)
+    .sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100))
+
+  const initialSelectedIds = searchParams.addons?.split(',').filter(Boolean) || []
 
   return (
     <main className="min-h-screen bg-[#FAF9F6]">
@@ -195,37 +125,18 @@ export default async function CheckoutPage({
         <Breadcrumb
           className="mb-8"
           items={[
-            {
-              label:
-                'Products',
-              href: '/products',
-            },
-            {
-              label:
-                product.title,
-              href: `/products/${product.id}`,
-            },
-            {
-              label:
-                'Checkout',
-              href: '/checkout',
-            },
+            { label: 'Products', href: '/products' },
+            { label: product.title, href: `/products/${product.id}` },
+            { label: 'Checkout', href: '/checkout' },
           ]}
         />
 
         <CheckoutClient
-          product={
-            product
-          }
-          addons={
-            addons
-          }
-          initialSelectedIds={
-            initialSelectedIds
-          }
-          userEmail={
-            session.email
-          }
+          product={product}
+          addons={addons}
+          initialSelectedIds={initialSelectedIds}
+          userEmail={session.email}
+          userId={session.user?.id} // Pass user ID for webhook order linking
         />
       </section>
     </main>
