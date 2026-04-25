@@ -1,140 +1,177 @@
+// src/app/login/page.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-
-  // ✅ Create Supabase client ONCE
   const supabase = useMemo(() => createBrowserClient(), []);
-
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
+  
+  const [isToggled, setIsToggled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  
+  // Sign In State
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  
+  // Sign Up State
+  const [signUpName, setSignUpName] = useState("");
+  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
+  
+  // Forgot Password State
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
 
-  // 🔍 Check if user is admin/super_admin and redirect accordingly
-  const handlePostLoginRedirect = async (userId: string) => {
-    try {
-      // Fetch user profile to check role
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
+  // Set initial toggled state (Sign Up visible on left by default)
+  useEffect(() => {
+    setIsToggled(true); // Start with Sign Up panel active (left side)
+  }, []);
 
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
-        // Default to dashboard if profile fetch fails
-        router.push("/dashboard");
-        return;
-      }
-
-      // Redirect: admin OR super_admin → /admin, user → /dashboard
-      const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-      router.push(isAdmin ? "/admin" : "/dashboard");
-    } catch (err) {
-      console.error("Redirect error:", err);
-      router.push("/dashboard");
-    } finally {
-      router.refresh();
-    }
-  };
-
-  // 🔐 EMAIL LOGIN / SIGNUP / RESET
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setMessage("");
-    setFieldErrors({});
 
-    // Validation
-    const errors: Record<string, string> = {};
-    if (!email) errors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(email)) errors.email = "Please enter a valid email";
-    
-    if (mode !== "forgot") {
-      if (!password) errors.password = "Password is required";
-      else if (password.length < 6) errors.password = "Password must be at least 6 characters";
-      
-      if (mode === "signup" && password !== confirmPassword) {
-        errors.confirmPassword = "Passwords do not match";
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+    if (!signInEmail || !signInPassword) {
+      setError("Please enter both email and password");
       setLoading(false);
       return;
     }
 
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: signInEmail,
+        password: signInPassword,
+      });
 
-        if (error) throw error;
-
-        setMessage("Account created! Check your email to verify your account.");
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("Invalid email or password");
+        }
+        throw error;
       }
 
-      if (mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
 
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            throw new Error("Invalid email or password");
-          }
-          throw error;
-        }
-
-        // Check role and redirect
-        if (data.user) {
-          await handlePostLoginRedirect(data.user.id);
-        }
-      }
-
-      if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
-
-        if (error) throw error;
-
-        setMessage("Password reset email sent. Check your inbox.");
-        setEmail("");
+        const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+        router.push(isAdmin ? "/admin" : "/dashboard");
+        router.refresh();
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔥 GOOGLE LOGIN
-  const handleGoogle = async () => {
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    if (!signUpName || !signUpEmail || !signUpPassword) {
+      setError("Please fill in all fields");
+      setLoading(false);
+      return;
+    }
+
+    if (signUpPassword !== signUpConfirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
+
+    if (signUpPassword.length < 6) {
+      setError("Password must be at least 6 characters");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: signUpEmail,
+        password: signUpPassword,
+        options: {
+          data: {
+            full_name: signUpName,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+
+      setMessage("Account created! Check your email to verify your account.");
+      setSignUpName("");
+      setSignUpEmail("");
+      setSignUpPassword("");
+      setSignUpConfirmPassword("");
+      
+      setTimeout(() => {
+        setIsToggled(false); // Switch to sign in after 3 seconds
+        setMessage("");
+      }, 3000);
+    } catch (err: any) {
+      setError(err.message || "Sign up failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    if (!forgotEmail) {
+      setError("Please enter your email address");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setMessage("Password reset email sent! Check your inbox.");
+      setForgotEmail("");
+      
+      setTimeout(() => {
+        setShowForgot(false);
+        setMessage("");
+      }, 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setError("");
     
@@ -143,257 +180,515 @@ export default function LoginPage() {
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
         },
       });
-
       if (error) throw error;
-      // Note: Google OAuth redirect is handled by the callback route
     } catch (err: any) {
-      setError(err.message || "Failed to connect with Google");
+      setError(err.message || "Google sign in failed");
       setLoading(false);
     }
   };
 
-  // Switch modes with reset
-  const switchMode = (newMode: "login" | "signup" | "forgot") => {
-    setMode(newMode);
-    setError("");
-    setMessage("");
-    setFieldErrors({});
-    if (newMode !== "signup") setConfirmPassword("");
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sage-50 to-stone-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Glass Card */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 p-8 md:p-10">
+    <div className="min-h-screen bg-gradient-to-br from-blueprint-950 via-blueprint-900 to-blueprint-800 flex items-center justify-center p-4 overflow-hidden">
+      {/* Animated Background Shapes */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-20 w-96 h-96 bg-blueprint-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-accent-500/5 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
+
+      <div className="relative w-full max-w-5xl">
+        {/* Main Auth Wrapper */}
+        <div className="relative bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
           
-          {/* TEFETRO LOGO */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative w-32 h-12 mb-4">
-              <Image
-                src="/images/tefetro-logo.png"
-                alt="Tefetro"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
-            <h1 className="text-2xl font-bold text-stone-800 text-center">
-              {mode === "login" && "Welcome Back"}
-              {mode === "signup" && "Create Your Account"}
-              {mode === "forgot" && "Reset Your Password"}
-            </h1>
-            <p className="text-stone-500 text-sm mt-2 text-center">
-              {mode === "login" && "Sign in to access your Tefetro account"}
-              {mode === "signup" && "Join Tefetro for exclusive wellness benefits"}
-              {mode === "forgot" && "Enter your email to receive reset instructions"}
-            </p>
-          </div>
-
-          {/* ERROR ALERT */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* SUCCESS MESSAGE */}
-          {message && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-              <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-green-700 text-sm">{message}</p>
-            </div>
-          )}
-
-          {/* GOOGLE AUTH */}
-          {mode !== "forgot" && (
-            <>
-              <button
-                onClick={handleGoogle}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-stone-300 rounded-xl bg-white hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="text-stone-700 font-medium">Continue with Google</span>
-              </button>
-
-              {/* DIVIDER */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-stone-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white/80 text-stone-500">or continue with email</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* FORM */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {/* EMAIL INPUT */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-stone-700 mb-1">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                className={`w-full px-4 py-3 border rounded-xl bg-white/50 focus:bg-white transition-all outline-none focus:ring-2 focus:ring-sage-500/20 ${
-                  fieldErrors.email ? "border-red-300 focus:border-red-500" : "border-stone-300 focus:border-sage-500"
-                }`}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-              {fieldErrors.email && (
-                <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
-              )}
-            </div>
-
-            {/* PASSWORD INPUT */}
-            {mode !== "forgot" && (
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-stone-700 mb-1">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder={mode === "signup" ? "Create a password (min 6 chars)" : "Enter your password"}
-                  className={`w-full px-4 py-3 border rounded-xl bg-white/50 focus:bg-white transition-all outline-none focus:ring-2 focus:ring-sage-500/20 ${
-                    fieldErrors.password ? "border-red-300 focus:border-red-500" : "border-stone-300 focus:border-sage-500"
-                  }`}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-                {fieldErrors.password && (
-                  <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
-                )}
-              </div>
-            )}
-
-            {/* CONFIRM PASSWORD (Signup only) */}
-            {mode === "signup" && (
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-stone-700 mb-1">
-                  Confirm Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  className={`w-full px-4 py-3 border rounded-xl bg-white/50 focus:bg-white transition-all outline-none focus:ring-2 focus:ring-sage-500/20 ${
-                    fieldErrors.confirmPassword ? "border-red-300 focus:border-red-500" : "border-stone-300 focus:border-sage-500"
-                  }`}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
-                />
-                {fieldErrors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
-                )}
-              </div>
-            )}
-
-            {/* SUBMIT BUTTON */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 bg-stone-800 hover:bg-stone-900 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : mode === "login" ? (
-                "Sign In"
-              ) : mode === "signup" ? (
-                "Create Account"
-              ) : (
-                "Send Reset Link"
-              )}
-            </button>
-          </form>
-
-          {/* MODE SWITCHERS */}
-          <div className="mt-8 text-center space-y-3">
-            {mode === "login" && (
-              <>
-                <p className="text-stone-600 text-sm">
-                  Don't have an account?{" "}
-                  <button
-                    onClick={() => switchMode("signup")}
-                    className="text-sage-600 hover:text-sage-700 font-semibold underline underline-offset-2"
+          <div className="relative grid lg:grid-cols-2 min-h-[650px]">
+            
+            {/* LEFT PANEL - Sign Up Section */}
+            <div className="relative overflow-hidden">
+              <AnimatePresence mode="wait">
+                {isToggled ? (
+                  // Sign Up Form (Left Side - Active)
+                  <motion.div
+                    key="signup-form"
+                    initial={{ x: 0, opacity: 1 }}
+                    exit={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="absolute inset-0 bg-white p-10 lg:p-12 overflow-y-auto"
                   >
-                    Sign up
-                  </button>
-                </p>
-                <button
-                  onClick={() => switchMode("forgot")}
-                  className="text-stone-500 hover:text-stone-700 text-sm"
-                >
-                  Forgot your password?
-                </button>
-              </>
-            )}
+                    <div className="text-center mb-8">
+                      <div className="flex justify-center mb-6">
+                        <div className="relative w-36 h-12">
+                          <Image
+                            src="/images/tefetro-logo.png"
+                            alt="Tefetro Studios"
+                            fill
+                            className="object-contain"
+                            priority
+                          />
+                        </div>
+                      </div>
+                      <h1 className="text-2xl font-bold text-blueprint-900">Create Account</h1>
+                      <p className="text-neutral-500 mt-2">Join Tefetro Studios today</p>
+                    </div>
 
-            {mode === "signup" && (
-              <p className="text-stone-600 text-sm">
-                Already have an account?{" "}
-                <button
-                  onClick={() => switchMode("login")}
-                  className="text-sage-600 hover:text-sage-700 font-semibold underline underline-offset-2"
-                >
-                  Sign in
-                </button>
-              </p>
-            )}
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2"
+                      >
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                        <p className="text-red-700 text-sm flex-1">{error}</p>
+                      </motion.div>
+                    )}
 
-            {mode === "forgot" && (
-              <button
-                onClick={() => switchMode("login")}
-                className="text-stone-600 hover:text-stone-800 text-sm flex items-center justify-center gap-1 mx-auto"
+                    {message && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <p className="text-green-700 text-sm flex-1">{message}</p>
+                      </motion.div>
+                    )}
+
+                    <form onSubmit={handleSignUp} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Full Name</label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type="text"
+                            value={signUpName}
+                            onChange={(e) => setSignUpName(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="John Doe"
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Email Address</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type="email"
+                            value={signUpEmail}
+                            onChange={(e) => setSignUpEmail(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="you@example.com"
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Password</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type={showSignUpPassword ? "text" : "password"}
+                            value={signUpPassword}
+                            onChange={(e) => setSignUpPassword(e.target.value)}
+                            className="w-full pl-10 pr-12 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                          >
+                            {showSignUpPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Confirm Password</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type={showSignUpConfirmPassword ? "text" : "password"}
+                            value={signUpConfirmPassword}
+                            onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                            className="w-full pl-10 pr-12 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignUpConfirmPassword(!showSignUpConfirmPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                          >
+                            {showSignUpConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-gradient-to-r from-blueprint-600 to-deep-600 hover:from-blueprint-700 hover:to-deep-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            Create Account
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    <div className="relative my-8">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-neutral-200" />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-white text-neutral-500">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleGoogleSignIn}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center gap-3 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all disabled:opacity-50"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      <span className="text-neutral-700 font-medium">Google</span>
+                    </button>
+
+                    <p className="mt-6 text-center text-sm text-neutral-500">
+                      Already have an account?{" "}
+                      <button
+                        onClick={() => setIsToggled(false)}
+                        className="text-blueprint-600 hover:text-blueprint-700 font-semibold"
+                      >
+                        Sign in
+                      </button>
+                    </p>
+                  </motion.div>
+                ) : (
+                  // Welcome Panel (Left Side - Inactive)
+                  <motion.div
+                    key="signup-welcome"
+                    initial={{ x: 100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="absolute inset-0 flex flex-col justify-center p-10 lg:p-12 bg-gradient-to-br from-blueprint-800 to-blueprint-900"
+                  >
+                    <div className="text-center">
+                      <div className="relative w-36 h-12 mx-auto mb-8">
+                        <Image
+                          src="/images/tefetro-logo.png"
+                          alt="Tefetro Studios"
+                          fill
+                          className="object-contain brightness-0 invert"
+                        />
+                      </div>
+                      <h2 className="text-3xl font-bold text-white mb-4">Welcome Back!</h2>
+                      <p className="text-blueprint-200 text-lg mb-8">
+                        Sign in to continue your architectural journey.
+                      </p>
+                      <div className="space-y-3 text-left">
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <CheckCircle className="w-5 h-5 text-accent-500" />
+                          <span>Access your purchased plans</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <CheckCircle className="w-5 h-5 text-accent-500" />
+                          <span>Download drawings instantly</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <CheckCircle className="w-5 h-5 text-accent-500" />
+                          <span>Track your construction projects</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIsToggled(true)}
+                        className="mt-8 px-6 py-2 border-2 border-white/30 rounded-lg text-white font-medium hover:bg-white/10 transition-all"
+                      >
+                        Create an Account →
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* RIGHT PANEL - Sign In Section */}
+            <div className="relative overflow-hidden bg-white">
+              <AnimatePresence mode="wait">
+                {!isToggled ? (
+                  // Sign In Form (Right Side - Active)
+                  <motion.div
+                    key="signin-form"
+                    initial={{ x: 0, opacity: 1 }}
+                    exit={{ x: 100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="absolute inset-0 p-10 lg:p-12 overflow-y-auto"
+                  >
+                    <div className="text-center mb-8">
+                      <div className="flex justify-center mb-6">
+                        <div className="relative w-36 h-12">
+                          <Image
+                            src="/images/tefetro-logo.png"
+                            alt="Tefetro Studios"
+                            fill
+                            className="object-contain"
+                            priority
+                          />
+                        </div>
+                      </div>
+                      <h1 className="text-2xl font-bold text-blueprint-900">Sign In</h1>
+                      <p className="text-neutral-500 mt-2">Access your Tefetro account</p>
+                    </div>
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2"
+                      >
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                        <p className="text-red-700 text-sm flex-1">{error}</p>
+                      </motion.div>
+                    )}
+
+                    {message && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <p className="text-green-700 text-sm flex-1">{message}</p>
+                      </motion.div>
+                    )}
+
+                    <form onSubmit={handleSignIn} className="space-y-5">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Email Address</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type="email"
+                            value={signInEmail}
+                            onChange={(e) => setSignInEmail(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="you@example.com"
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">Password</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type={showSignInPassword ? "text" : "password"}
+                            value={signInPassword}
+                            onChange={(e) => setSignInPassword(e.target.value)}
+                            className="w-full pl-10 pr-12 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignInPassword(!showSignInPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                          >
+                            {showSignInPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-blueprint-600 hover:bg-blueprint-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            Sign In
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowForgot(true)}
+                        className="text-sm text-blueprint-600 hover:text-blueprint-700 font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+
+                    <div className="relative my-8">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-neutral-200" />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-white text-neutral-500">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleGoogleSignIn}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center gap-3 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all disabled:opacity-50"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      <span className="text-neutral-700 font-medium">Google</span>
+                    </button>
+                  </motion.div>
+                ) : (
+                  // Welcome Panel (Right Side - Inactive)
+                  <motion.div
+                    key="signin-welcome"
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="absolute inset-0 flex flex-col justify-center p-10 lg:p-12 bg-gradient-to-br from-blueprint-800 to-blueprint-900"
+                  >
+                    <div className="text-center">
+                      <div className="relative w-36 h-12 mx-auto mb-8">
+                        <Image
+                          src="/images/tefetro-logo.png"
+                          alt="Tefetro Studios"
+                          fill
+                          className="object-contain brightness-0 invert"
+                        />
+                      </div>
+                      <h2 className="text-3xl font-bold text-white mb-4">Join Tefetro!</h2>
+                      <p className="text-blueprint-200 text-lg mb-8">
+                        Create an account to start building your dream project.
+                      </p>
+                      <div className="space-y-3 text-left">
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <span className="text-2xl">🏗️</span>
+                          <span>Access 500+ architectural plans</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <span className="text-2xl">📐</span>
+                          <span>Get professional BOQ services</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-blueprint-100">
+                          <span className="text-2xl">🎨</span>
+                          <span>Interior design packages available</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+
+        {/* Forgot Password Modal */}
+        <AnimatePresence>
+          {showForgot && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setShowForgot(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to sign in
-              </button>
-            )}
-          </div>
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold text-blueprint-900">Reset Password</h2>
+                  <p className="text-neutral-500 mt-2">We'll send you a reset link</p>
+                </div>
 
-          {/* FOOTER */}
-          <div className="mt-8 pt-6 border-t border-stone-200 text-center">
-            <p className="text-xs text-stone-400">
-              By continuing, you agree to Tefetro's{" "}
-              <Link href="/terms" className="underline hover:text-stone-600">Terms of Service</Link>
-              {" "}and{" "}
-              <Link href="/privacy" className="underline hover:text-stone-600">Privacy Policy</Link>
-            </p>
-          </div>
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    <p className="text-red-700 text-sm flex-1">{error}</p>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <p className="text-green-700 text-sm flex-1">{message}</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleForgotPassword} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl focus:border-blueprint-500 focus:ring-2 focus:ring-blueprint-500/20 outline-none transition-all"
+                        placeholder="you@example.com"
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-blueprint-600 hover:bg-blueprint-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        Send Reset Link
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        <div className="text-center mt-6 text-white/60 text-sm">
+          <p>
+            By continuing, you agree to Tefetro's{" "}
+            <Link href="/terms" className="text-accent-400 hover:text-accent-300">Terms of Service</Link>
+            {" "}and{" "}
+            <Link href="/privacy" className="text-accent-400 hover:text-accent-300">Privacy Policy</Link>
+          </p>
         </div>
       </div>
     </div>
