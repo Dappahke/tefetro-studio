@@ -4,8 +4,6 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Save,
-  X,
-  Upload,
   Image as ImageIcon,
   FileText,
   Package,
@@ -14,10 +12,6 @@ import {
   Search,
   Eye,
   EyeOff,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  Trash2,
 } from 'lucide-react'
 
 import {
@@ -37,7 +31,6 @@ import { CATEGORY_MAP } from './constants'
 import { BasicInfoSection } from './BasicInfoSection'
 import { SpecsSection } from './SpecsSection'
 import { SeoSection } from './SeoSection'
-import { SubmitBar } from './SubmitBar'
 import { DrawingUploadSection } from './DrawingUploadSection'
 import { ElevationUploadSection } from './ElevationUploadSection'
 import { AddonsSection } from './AddonsSection'
@@ -84,14 +77,14 @@ export function ProductForm({
   }, [form.category])
 
   const sections = [
-    { id: 'basic', label: 'Basic Info', icon: Package, color: 'blue' },
-    { id: 'pricing', label: 'Pricing', icon: FileText, color: 'green' },
-    { id: 'specs', label: 'Specifications', icon: Ruler, color: 'purple' },
-    { id: 'drawings', label: 'Drawings', icon: ImageIcon, color: 'orange' },
-    { id: 'elevations', label: 'Elevations', icon: ImageIcon, color: 'amber' },
-    { id: 'addons', label: 'Add-ons', icon: Package, color: 'teal' },
-    { id: 'services', label: 'Services', icon: Settings, color: 'indigo' },
-    { id: 'seo', label: 'SEO', icon: Search, color: 'gray' },
+    { id: 'basic', label: 'Basic Info', icon: Package },
+    { id: 'pricing', label: 'Pricing', icon: FileText },
+    { id: 'specs', label: 'Specifications', icon: Ruler },
+    { id: 'drawings', label: 'Drawings', icon: ImageIcon },
+    { id: 'elevations', label: 'Elevations', icon: ImageIcon },
+    { id: 'addons', label: 'Add-ons', icon: Package },
+    { id: 'services', label: 'Services', icon: Settings },
+    { id: 'seo', label: 'SEO', icon: Search },
   ]
 
   function updateField<K extends keyof ProductFormState>(
@@ -133,16 +126,19 @@ export function ProductForm({
   }
 
   async function uploadFile(file: File, folder: string) {
-    const data = new FormData()
-    data.append('file', file)
-    data.append('folder', folder)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('folder', folder)
 
     const res = await fetch('/api/admin/upload', {
       method: 'POST',
-      body: data,
+      body: formData,
     })
 
-    if (!res.ok) throw new Error('Upload failed')
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Upload failed')
+    }
     const json = await res.json()
     return json.path as string
   }
@@ -162,11 +158,13 @@ export function ProductForm({
     try {
       setSubmitting(true)
 
+      // 1. Upload main drawing file
       let drawingPath = product?.file_path || null
       if (drawingFile) {
         drawingPath = await uploadFile(drawingFile, 'drawings')
       }
 
+      // 2. Upload elevation images
       let elevationPaths = product?.elevation_images || []
       if (elevationFiles.length > 0) {
         elevationPaths = await Promise.all(
@@ -174,23 +172,35 @@ export function ProductForm({
         )
       }
 
-      const addonDocuments: Record<string, string> = {}
+      // 3. Build addons data in the format your API expects
+      const addonsData = []
       for (const addonId of selectedAddons) {
+        let documentPath = null
+        
         if (documentFiles[addonId]) {
-          addonDocuments[addonId] = await uploadFile(documentFiles[addonId]!, 'addons')
+          // New document uploaded
+          documentPath = await uploadFile(documentFiles[addonId]!, 'addons')
         } else if (existingDocuments[addonId]) {
-          addonDocuments[addonId] = existingDocuments[addonId]
+          // Existing document from database
+          documentPath = existingDocuments[addonId]
         }
+        
+        addonsData.push({
+          addon_id: addonId,
+          price_override: priceOverrides[addonId] ? Number(priceOverrides[addonId]) : null,
+          document_path: documentPath,
+        })
       }
 
+      // 4. Build payload matching API expectations
       const payload = {
         ...buildPayload(form),
         file_path: drawingPath,
         elevation_images: elevationPaths,
-        selectedAddons,
-        priceOverrides,
-        addonDocuments,
+        addons: addonsData,  // ✅ API expects 'addons' array with objects
       }
+
+      console.log('📦 Sending payload to API:', JSON.stringify(payload, null, 2))
 
       const endpoint = mode === 'create'
         ? '/api/admin/products'
@@ -204,13 +214,20 @@ export function ProductForm({
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) throw new Error('Save failed')
+      const responseData = await res.json()
+
+      if (!res.ok) {
+        console.error('API Error:', responseData)
+        throw new Error(responseData.error || 'Save failed')
+      }
+
+      console.log('✅ Save successful:', responseData)
 
       router.push('/admin/products')
       router.refresh()
     } catch (error) {
-      console.error(error)
-      alert('Unable to save product.')
+      console.error('Submit error:', error)
+      alert(error instanceof Error ? error.message : 'Unable to save product.')
     } finally {
       setSubmitting(false)
     }
@@ -366,7 +383,7 @@ export function ProductForm({
 
           <div id="section-addons">
             <AddonsSection
-              addons={addons}
+              addons={addons.filter(a => a.type === 'drawing')}
               selected={selectedAddons}
               linkedAddons={linkedAddons}
               priceOverrides={priceOverrides}
@@ -380,7 +397,7 @@ export function ProductForm({
 
           <div id="section-services">
             <ServicesSection
-              addons={addons}
+              addons={addons.filter(a => a.type === 'service')}
               selected={selectedAddons}
               linkedAddons={linkedAddons}
               onToggle={toggleAddon}

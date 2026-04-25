@@ -105,41 +105,22 @@ export async function fetchProducts(searchParams?: SearchParams) {
     const limit = Math.min(asNumber(searchParams?.limit, 20), 50)
     const offset = Math.max(asNumber(searchParams?.offset, 0), 0)
 
+    // ✅ USING THE VIEW for addon counts
     let query = supabase
-      .from('products')
-      .select(
-        `
-        id,
-        slug,
-        title,
-        description,
-        price,
-        category,
-        bedrooms,
-        bathrooms,
-        floors,
-        plinth_area,
-        length,
-        width,
-        elevation_images,
-        created_at,
-        updated_at
-      `,
-        { count: 'exact' }
-      )
+      .from('products_with_addon_counts')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
-    // Category
+    // Category filter
     const category = asString(searchParams?.category)
     if (category && category !== 'all') {
       query = query.eq('category', category)
     }
 
-    // Search
+    // Search filter
     const rawQuery = asString(searchParams?.q)
     if (rawQuery) {
       const safeQuery = sanitizeSearchTerm(rawQuery)
-
       if (safeQuery.length > 0) {
         query = query.or(
           `title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`
@@ -147,19 +128,19 @@ export async function fetchProducts(searchParams?: SearchParams) {
       }
     }
 
-    // Bedrooms
+    // Bedrooms filter
     const bedrooms = asString(searchParams?.bedrooms)
     if (bedrooms) {
       query = query.eq('bedrooms', parseInt(bedrooms, 10))
     }
 
-    // Floors
+    // Floors filter
     const floors = asString(searchParams?.floors)
     if (floors) {
       query = query.eq('floors', parseInt(floors, 10))
     }
 
-    // Price
+    // Price filter
     const price = asString(searchParams?.price)
     if (price && price !== 'all') {
       if (price === '0-50000') {
@@ -173,23 +154,35 @@ export async function fetchProducts(searchParams?: SearchParams) {
       }
     }
 
+    // Pagination
     query = query.range(offset, offset + limit - 1)
 
-    const { data, error, count } = await query
+    const { data: products, error, count } = await query
 
     if (error) {
+      console.error('fetchProducts error:', error)
       throw new Error(error.message)
     }
 
-    const products =
-      data?.map((p: any) => ({
-        ...p,
-        slug: p.slug || normalizeSlug(p.title || p.id),
-        addon_count: 0,
-      })) || []
+    // If no products, return empty array
+    if (!products || products.length === 0) {
+      return {
+        products: [],
+        total: 0,
+        limit,
+        offset,
+      }
+    }
+
+    // Transform products with slug and ensure addon_count exists
+    const productsWithData = products.map((p: any) => ({
+      ...p,
+      slug: p.slug || normalizeSlug(p.title || p.id),
+      addon_count: p.addon_count || 0,
+    }))
 
     return {
-      products,
+      products: productsWithData,
       total: count || 0,
       limit,
       offset,
@@ -216,8 +209,9 @@ export async function fetchProductById(id: string) {
   try {
     const supabase = await createClient()
 
+    // ✅ Use the view for single product too (includes addon_count)
     const { data, error } = await supabase
-      .from('products')
+      .from('products_with_addon_counts')
       .select('*')
       .eq('id', id)
       .single()
@@ -229,6 +223,7 @@ export async function fetchProductById(id: string) {
     return {
       ...data,
       slug: data.slug || normalizeSlug(data.title || data.id),
+      addon_count: data.addon_count || 0,
       addons: [],
     }
   } catch (error) {
@@ -241,8 +236,9 @@ export async function fetchProductBySlug(slug: string) {
   try {
     const supabase = await createClient()
 
+    // ✅ Use the view for slug lookup too
     const { data, error } = await supabase
-      .from('products')
+      .from('products_with_addon_counts')
       .select('*')
       .eq('slug', slug)
       .single()
@@ -253,6 +249,7 @@ export async function fetchProductBySlug(slug: string) {
 
     return {
       ...data,
+      addon_count: data.addon_count || 0,
       addons: [],
     }
   } catch (error) {
@@ -322,7 +319,7 @@ export async function createOrder(input: {
       addons: addonDetails,
       total,
       payment_ref: input.paymentRef,
-      status: 'pending', // safer than completed
+      status: 'pending',
       expires_at: new Date(
         Date.now() + 24 * 60 * 60 * 1000
       ).toISOString(),
