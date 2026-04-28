@@ -5,237 +5,249 @@ import { z } from 'zod'
 
 const CreateProductSchema = z.object({
   title: z.string().min(1),
-  description: z.string().optional(),
-  price: z.number().positive(),
+  description: z.string().optional().nullable(),
+  slug: z.string().optional().nullable(),
+
+  price: z.number().nonnegative(),
+
   category: z.string().min(1),
-  bedrooms: z.number().int().optional(),
-  bathrooms: z.number().int().optional(),
-  floors: z.number().int().optional(),
-  plinth_area: z.number().optional(),
-  length: z.number().optional(),
-  width: z.number().optional(),
-  addonIds: z.array(z.string()).optional(),
+  subcategory: z.string().optional().nullable(),
+
+  bedrooms: z.number().int().optional().nullable(),
+  bathrooms: z.number().int().optional().nullable(),
+  floors: z.number().int().optional().nullable(),
+
+  plinth_area: z.number().optional().nullable(),
+  length: z.number().optional().nullable(),
+  width: z.number().optional().nullable(),
+
+  meta_title: z.string().optional().nullable(),
+  meta_description: z.string().optional().nullable(),
+
+  file_path: z.string().optional().nullable(),
+  elevation_images: z.array(z.string()).optional().default([]),
+
+  addons: z
+    .array(
+      z.object({
+        addon_id: z.string(),
+        price_override: z.number().optional().nullable(),
+        document_path: z.string().optional().nullable(),
+      })
+    )
+    .optional()
+    .default([]),
 })
+
+function cleanNumber(value: any) {
+  if (value === '' || value === null || value === undefined) {
+    return null
+  }
+
+  const num = Number(value)
+
+  return Number.isNaN(num) ? null : num
+}
 
 export async function POST(request: Request) {
   console.log('=== ADMIN PRODUCTS POST ===')
-  
+
   try {
-    // Step 1: Auth
-    console.log('1. Checking admin...')
+    // 1. Admin auth
     await verifyAdmin()
-    console.log('1. ✓ Admin verified')
 
-    // Step 2: Parse form data
-    console.log('2. Parsing form data...')
-    let formData: FormData
+    // 2. Parse JSON
+    let body: any
+
     try {
-      formData = await request.formData()
-      console.log('2. ✓ Form data parsed')
-    } catch (e: any) {
-      console.error('2. ✗ Form data parse error:', e)
-      return NextResponse.json({ error: 'Invalid form data', details: e.message }, { status: 400 })
-    }
-
-    // Step 3: Extract fields
-    console.log('3. Extracting fields...')
-    const getField = (name: string) => formData.get(name) as string | null
-    
-    const title = getField('title')
-    const description = getField('description') || undefined
-    const priceRaw = getField('price')
-    const category = getField('category')
-    const bedroomsRaw = getField('bedrooms')
-    const bathroomsRaw = getField('bathrooms')
-    const floorsRaw = getField('floors')
-    const plinth_areaRaw = getField('plinth_area')
-    const lengthRaw = getField('length')
-    const widthRaw = getField('width')
-    const addonIdsRaw = getField('addonIds')
-    const file = formData.get('file') as File | null
-
-    console.log('3. Fields:', { title, priceRaw, category, hasFile: !!file, fileSize: file?.size })
-
-    // Step 4: Parse numbers
-    const price = priceRaw ? parseFloat(priceRaw) : NaN
-    const bedrooms = bedroomsRaw ? parseInt(bedroomsRaw) : undefined
-    const bathrooms = bathroomsRaw ? parseInt(bathroomsRaw) : undefined
-    const floors = floorsRaw ? parseInt(floorsRaw) : undefined
-    const plinth_area = plinth_areaRaw ? parseFloat(plinth_areaRaw) : undefined
-    const length = lengthRaw ? parseFloat(lengthRaw) : undefined
-    const width = widthRaw ? parseFloat(widthRaw) : undefined
-    
-    let addonIds: string[] = []
-    try {
-      addonIds = JSON.parse(addonIdsRaw || '[]')
-    } catch (e) {
-      console.error('3. ✗ addonIds parse error:', addonIdsRaw)
-      return NextResponse.json({ error: 'Invalid addonIds format' }, { status: 400 })
-    }
-
-    // Step 5: Validate
-    console.log('5. Validating...')
-    const validation = CreateProductSchema.safeParse({
-      title, description, price, category, bedrooms, bathrooms, floors, plinth_area, length, width, addonIds
-    })
-
-    if (!validation.success) {
-      console.error('5. ✗ Validation failed:', validation.error.flatten())
+      body = await request.json()
+    } catch {
       return NextResponse.json(
-        { error: 'Invalid input', details: validation.error.flatten() },
+        { error: 'Invalid JSON body' },
         { status: 400 }
       )
     }
-    console.log('5. ✓ Validation passed')
 
-    // Step 6: Generate ID
-    const id = `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-    console.log('6. Generated ID:', id)
+    // 3. Normalize incoming values
+    const normalized = {
+      title: body.title,
+      description: body.description ?? null,
+      slug: body.slug ?? null,
 
-    // Step 7: Handle file upload
-    let file_path: string | null = null
-    if (file && file.size > 0) {
-      console.log('7. Uploading file:', file.name, file.size, file.type)
-      
-      const fileExt = file.name.split('.').pop() || 'pdf'
-      const fileName = `${id}.${fileExt}`
+      price: cleanNumber(body.price) ?? 0,
 
-      try {
-        // Convert File to ArrayBuffer for upload
-        const arrayBuffer = await file.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
+      category: body.category,
+      subcategory: body.subcategory ?? null,
 
-        const { data: uploadData, error: uploadError } = await adminClient.storage
-          .from('drawings')
-          .upload(fileName, buffer, {
-            contentType: file.type || 'application/pdf',
-            upsert: false
-          })
+      bedrooms: cleanNumber(body.bedrooms),
+      bathrooms: cleanNumber(body.bathrooms),
+      floors: cleanNumber(body.floors),
 
-        if (uploadError) {
-          console.error('7. ✗ Upload error:', uploadError)
-          return NextResponse.json(
-            { error: 'File upload failed', details: uploadError.message },
-            { status: 500 }
-          )
-        }
+      plinth_area: cleanNumber(body.plinth_area),
+      length: cleanNumber(body.length),
+      width: cleanNumber(body.width),
 
-        file_path = uploadData?.path || `${fileName}`
-        console.log('7. ✓ File uploaded:', file_path)
-      } catch (uploadErr: any) {
-        console.error('7. ✗ Upload exception:', uploadErr)
-        return NextResponse.json(
-          { error: 'File upload failed', details: uploadErr.message },
-          { status: 500 }
-        )
-      }
-    } else {
-      console.log('7. No file to upload')
+      meta_title: body.meta_title ?? null,
+      meta_description: body.meta_description ?? null,
+
+      file_path: body.file_path ?? null,
+      elevation_images: body.elevation_images || [],
+
+      addons: body.addons || [],
     }
 
-    // Step 8: Insert product
-    console.log('8. Inserting product...')
-    const insertData = {
+    // 4. Validate
+    const validation = CreateProductSchema.safeParse(normalized)
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: validation.error.flatten(),
+        },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
+
+    // 5. Generate ID
+    const id = `prod-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 7)}`
+
+    // 6. Insert product
+    const insertPayload = {
       id,
-      title,
-      description,
-      price,
-      category,
-      file_path,
-      bedrooms,
-      bathrooms,
-      floors,
-      plinth_area,
-      length,
-      width,
-    }
-    console.log('8. Insert data:', insertData)
 
-    const { data: product, error: insertError } = await adminClient
-      .from('products')
-      .insert(insertData)
-      .select()
-      .single()
+      title: data.title,
+      description: data.description,
+      slug: data.slug,
+
+      price: data.price,
+
+      category: data.category,
+      subcategory: data.subcategory,
+
+      bedrooms: data.bedrooms,
+      bathrooms: data.bathrooms,
+      floors: data.floors,
+
+      plinth_area: data.plinth_area,
+      length: data.length,
+      width: data.width,
+
+      meta_title: data.meta_title,
+      meta_description: data.meta_description,
+
+      file_path: data.file_path,
+      elevation_images: data.elevation_images,
+    }
+
+    const { data: product, error: insertError } =
+      await adminClient
+        .from('products')
+        .insert(insertPayload)
+        .select()
+        .single()
 
     if (insertError) {
-      console.error('8. ✗ Insert error:', insertError)
+      console.error(insertError)
+
       return NextResponse.json(
-        { error: 'Failed to create product', details: insertError.message, hint: insertError.hint },
+        {
+          error: 'Failed to create product',
+          details: insertError.message,
+        },
         { status: 500 }
       )
     }
-    console.log('8. ✓ Product inserted:', product?.id)
 
-    // Step 9: Link addons
-    if (addonIds && addonIds.length > 0) {
-      console.log('9. Linking addons:', addonIds)
-      const { error: linkError } = await adminClient
+    // 7. Insert addons
+    if (data.addons.length > 0) {
+      const rows = data.addons.map((item) => ({
+        product_id: id,
+        addon_id: item.addon_id,
+        price_override: item.price_override ?? null,
+        document_path: item.document_path ?? null,
+      }))
+
+      const { error: addonError } = await adminClient
         .from('product_addons')
-        .insert(
-          addonIds.map((addonId: string) => ({
-            product_id: id,
-            addon_id: addonId,
-          }))
-        )
+        .insert(rows)
 
-      if (linkError) {
-        console.error('9. ⚠ Addon link error (non-fatal):', linkError)
-      } else {
-        console.log('9. ✓ Addons linked')
+      if (addonError) {
+        console.error('Addon insert error:', addonError)
       }
     }
 
-    console.log('=== SUCCESS ===')
     return NextResponse.json({
       success: true,
-      data: product
+      data: product,
     })
-
   } catch (err: any) {
-    console.error('=== UNEXPECTED ERROR ===', err)
+    console.error(err)
+
     return NextResponse.json(
-      { error: 'Internal server error', message: err.message, stack: err.stack },
+      {
+        error: 'Internal server error',
+        message: err.message,
+      },
       { status: 500 }
     )
   }
 }
 
-// GET: List products for admin
+// GET products
 export async function GET() {
   try {
     await verifyAdmin()
 
-    const { data: products, error } = await adminClient
+    const { data, error } = await adminClient
       .from('products')
-      .select(`
+      .select(
+        `
         *,
         product_addons (
+          addon_id,
+          price_override,
+          document_path,
           addon:addons (*)
         )
-      `)
+      `
+      )
       .order('created_at', { ascending: false })
 
     if (error) {
       return NextResponse.json(
-        { error: 'Failed to fetch products', details: error.message },
+        {
+          error: 'Failed to fetch products',
+          details: error.message,
+        },
         { status: 500 }
       )
     }
 
-    // Flatten structure
-    const flattened = (products || []).map((p: any) => ({
-      ...p,
-      addons: p.product_addons?.map((pa: any) => pa.addon).filter(Boolean) || []
+    const products = (data || []).map((item: any) => ({
+      ...item,
+      addons:
+        item.product_addons?.map((row: any) => ({
+          ...row.addon,
+          price_override: row.price_override,
+          document_path: row.document_path,
+        })) || [],
     }))
 
     return NextResponse.json({
       success: true,
-      data: flattened
+      data: products,
     })
-
   } catch (err: any) {
     return NextResponse.json(
-      { error: 'Internal server error', message: err.message },
+      {
+        error: 'Internal server error',
+        message: err.message,
+      },
       { status: 500 }
     )
   }

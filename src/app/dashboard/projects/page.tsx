@@ -1,3 +1,4 @@
+// src/app/dashboard/projects/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,6 +18,29 @@ import {
   Loader2
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+
+// Define the raw project type from Supabase
+interface RawProject {
+  id: string;
+  name?: string;
+  type?: string;
+  location?: string;
+  start_date?: string;
+  expected_handover?: string;
+  current_phase?: string;
+  progress?: number;
+  created_at?: string;
+  user_id?: string;
+  order_id?: string;
+  service_type?: string;
+  status?: string;
+  full_name?: string;
+  project_updates?: Array<{
+    id: string;
+    description: string;
+    created_at: string;
+  }>;
+}
 
 interface Project {
   id: string;
@@ -92,19 +116,19 @@ export default function ProjectsPage() {
         }
 
         // Format projects with additional data
-        const formattedProjects: Project[] = (data || []).map(project => {
+        const formattedProjects: Project[] = (data || []).map((project: RawProject) => {
           const latestUpdate = project.project_updates?.[0];
           
           return {
             id: project.id,
-            name: project.name,
-            type: project.type,
-            location: project.location,
-            startDate: project.start_date,
-            expectedHandover: project.expected_handover,
-            currentPhase: project.current_phase,
-            progress: project.progress,
-            lastUpdate: latestUpdate?.description || `Project is currently in ${project.current_phase} phase`,
+            name: project.name || project.full_name || 'Unnamed Project',
+            type: (project.type as 'Full Construction' | 'Site Supervision' | 'Consultancy') || 'Consultancy',
+            location: project.location || 'Location TBD',
+            startDate: project.start_date || new Date().toISOString(),
+            expectedHandover: project.expected_handover || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+            currentPhase: project.current_phase || phases[0].name,
+            progress: project.progress || 0,
+            lastUpdate: latestUpdate?.description || `Project is currently in ${project.current_phase || phases[0].name} phase`,
             team: [
               { name: 'John Mwangi', role: 'Project Manager', avatar: '' },
               { name: 'Sarah Ochieng', role: 'Architect', avatar: '' }

@@ -3,10 +3,29 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { OrdersTable } from './OrdersTable'
 
+// Complete Order interface matching your database schema
+interface Order {
+  id: string
+  total: number | null
+  status: string | null
+  created_at: string | null
+  user_id: string | null
+  email: string | null
+  product_id: string | null
+  payment_ref: string | null
+  download_url: string | null
+  expires_at: string | null
+  addons: any[] | null
+  last_regenerated_at: string | null
+  regeneration_count: number | null
+  metadata: Record<string, any> | null
+}
+
 interface RealtimeOrdersProps {
-  initialOrders: any[]
+  initialOrders: Order[]
   currentPage: number
   totalPages: number
   totalOrders: number
@@ -20,11 +39,10 @@ export function RealtimeOrders({
   totalOrders: initialTotal,
   filters 
 }: RealtimeOrdersProps) {
-  const [orders, setOrders] = useState(initialOrders)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [totalOrders, setTotalOrders] = useState(initialTotal)
   const supabase = createClient()
 
-  // Refresh data from server (properly authenticated)
   const refreshData = useCallback(async () => {
     try {
       const params = new URLSearchParams()
@@ -49,8 +67,6 @@ export function RealtimeOrders({
   }, [initialOrders, initialTotal])
 
   useEffect(() => {
-    // Subscribe to order changes - this will only notify of changes
-    // but we re-fetch to get proper data with RLS bypass via API
     const subscription = supabase
       .channel('orders-channel')
       .on(
@@ -60,9 +76,8 @@ export function RealtimeOrders({
           schema: 'public',
           table: 'orders'
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Order>) => {
           console.log('Order change detected, refreshing...', payload)
-          // Re-fetch from API to get complete data with proper permissions
           refreshData()
         }
       )

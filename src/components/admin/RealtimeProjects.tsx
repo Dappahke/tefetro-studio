@@ -1,17 +1,35 @@
 // src/components/admin/RealtimeProjects.tsx
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { 
-  Bell, 
-  RefreshCw, 
   CheckCircle2, 
   AlertCircle,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react'
+
+// Complete Project interface matching your database schema
+interface Project {
+  id: string
+  name: string | null
+  full_name: string | null
+  status: string | null
+  user_id: string | null
+  order_id: string | null
+  type: string | null
+  service_type: string | null
+  location: string | null
+  start_date: string | null
+  expected_handover: string | null
+  current_phase: string | null
+  progress: number | null
+  created_at: string | null
+}
 
 interface RealtimeProjectsProps {
   onUpdate?: () => void
@@ -22,17 +40,15 @@ export function RealtimeProjects({ onUpdate, showToasts = true }: RealtimeProjec
   const router = useRouter()
   const supabase = createClient()
 
-  const handleUpdate = useCallback((payload: any) => {
-    // Refresh the page data
+  const handleUpdate = useCallback((payload: RealtimePostgresChangesPayload<Project>) => {
     router.refresh()
-    
-    // Call custom callback if provided
     onUpdate?.()
 
-    // Show toast notification
     if (showToasts) {
       const eventType = payload.eventType
-      const projectId = payload.new?.id || payload.old?.id
+      const newRecord = payload.new as Project | null
+      const oldRecord = payload.old as Project | null
+      const projectId = newRecord?.id || oldRecord?.id
       
       switch (eventType) {
         case 'INSERT':
@@ -42,12 +58,12 @@ export function RealtimeProjects({ onUpdate, showToasts = true }: RealtimeProjec
           })
           break
         case 'UPDATE':
-          const newStatus = payload.new?.status
-          const oldStatus = payload.old?.status
+          const newStatus = newRecord?.status
+          const oldStatus = oldRecord?.status
           
           if (newStatus !== oldStatus) {
-            toast.info(`Project status updated to ${newStatus}`, {
-              description: `Project ${projectId?.slice(0, 8)}... moved from ${oldStatus}.`,
+            toast.info(`Project status updated to ${newStatus || 'unknown'}`, {
+              description: `Project ${projectId?.slice(0, 8)}... has been updated.`,
               icon: <Info className="w-4 h-4" />,
             })
           } else {
@@ -68,30 +84,34 @@ export function RealtimeProjects({ onUpdate, showToasts = true }: RealtimeProjec
   }, [router, onUpdate, showToasts])
 
   useEffect(() => {
-    // Subscribe to all project changes
-    const channel = supabase
-      .channel('projects-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'projects',
-        },
-        handleUpdate
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status)
-      })
+    let channel: RealtimeChannel | null = null
+    
+    const setupSubscription = async () => {
+      channel = supabase
+        .channel('projects-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'projects',
+          },
+          handleUpdate
+        )
+        .subscribe((status: string) => {
+          console.log('Realtime subscription status:', status)
+        })
+    }
 
-    // Cleanup subscription on unmount
+    setupSubscription()
+
     return () => {
-      channel.unsubscribe()
+      if (channel) {
+        channel.unsubscribe()
+      }
     }
   }, [supabase, handleUpdate])
 
-  // This component doesn't render anything visible
-  // It's a "ghost" component that only handles realtime updates
   return null
 }
 
@@ -101,13 +121,15 @@ export function RealtimeProjectsWithIndicator({ onUpdate, showToasts = true }: R
   const supabase = createClient()
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting')
 
-  const handleUpdate = useCallback((payload: any) => {
+  const handleUpdate = useCallback((payload: RealtimePostgresChangesPayload<Project>) => {
     router.refresh()
     onUpdate?.()
 
     if (showToasts) {
       const eventType = payload.eventType
-      const projectId = payload.new?.id || payload.old?.id
+      const newRecord = payload.new as Project | null
+      const oldRecord = payload.old as Project | null
+      const projectId = newRecord?.id || oldRecord?.id
       
       switch (eventType) {
         case 'INSERT':
@@ -130,23 +152,31 @@ export function RealtimeProjectsWithIndicator({ onUpdate, showToasts = true }: R
   }, [router, onUpdate, showToasts])
 
   useEffect(() => {
-    const channel = supabase
-      .channel('projects-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'projects',
-        },
-        handleUpdate
-      )
-      .subscribe((status) => {
-        setConnectionStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected')
-      })
+    let channel: RealtimeChannel | null = null
+
+    const setupSubscription = async () => {
+      channel = supabase
+        .channel('projects-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'projects',
+          },
+          handleUpdate
+        )
+        .subscribe((status: string) => {
+          setConnectionStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected')
+        })
+    }
+
+    setupSubscription()
 
     return () => {
-      channel.unsubscribe()
+      if (channel) {
+        channel.unsubscribe()
+      }
     }
   }, [supabase, handleUpdate])
 
@@ -175,38 +205,44 @@ export function RealtimeProjectsWithIndicator({ onUpdate, showToasts = true }: R
 }
 
 // Hook version for use in other components
-import { useState } from 'react'
-
 export function useRealtimeProjects(options: { showToasts?: boolean } = {}) {
   const router = useRouter()
   const supabase = createClient()
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
-    const channel = supabase
-      .channel('projects-hook')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'projects',
-        },
-        (payload) => {
-          router.refresh()
-          setLastUpdate(new Date())
-          
-          if (options.showToasts) {
-            toast.info('Projects updated', {
-              description: 'New changes detected.',
-            })
+    let channel: RealtimeChannel | null = null
+
+    const setupSubscription = async () => {
+      channel = supabase
+        .channel('projects-hook')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'projects',
+          },
+          (payload: RealtimePostgresChangesPayload<Project>) => {
+            router.refresh()
+            setLastUpdate(new Date())
+            
+            if (options.showToasts) {
+              toast.info('Projects updated', {
+                description: 'New changes detected.',
+              })
+            }
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe()
+    }
+
+    setupSubscription()
 
     return () => {
-      channel.unsubscribe()
+      if (channel) {
+        channel.unsubscribe()
+      }
     }
   }, [supabase, router, options.showToasts])
 

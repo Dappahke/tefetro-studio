@@ -9,13 +9,13 @@ const team = [
     name: 'Noel Syambi',
     role: 'Co-founder & Lead Architect',
     image: '/team/noel.jpg', // Replace with actual path or use placeholder
-    email: 'noel@tefetrostudios.com',
+    email: 'noel@tefetro.studio',
   },
   {
     name: 'Nicholas Wafula',
     role: 'Co-founder & Construction Lead',
     image: '/team/nicholas.jpg',
-    email: 'nicholas@tefetrostudios.com',
+    email: 'nicholas@tefetro.studio',
   },
 ]
 

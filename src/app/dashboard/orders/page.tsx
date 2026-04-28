@@ -1,3 +1,4 @@
+// src/app/dashboard/orders/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,6 +7,30 @@ import { createClient } from '@/lib/supabase/client';
 import { OrderList } from '@/components/dashboard/OrderList';
 import { DownloadManager } from '@/components/dashboard/DownloadManager';
 import type { Order } from '@/types/dashboard';
+
+// Define the raw order type from Supabase
+interface RawOrder {
+  id: string;
+  total: number;
+  status: string;
+  expires_at: string | null;
+  created_at: string;
+  download_url: string | null;
+  addons: any[] | null;
+  product: any[] | any; // Can be array or object depending on query
+}
+
+interface RawProduct {
+  title: string;
+  category: string;
+  file_path: string | null;
+}
+
+interface Addon {
+  name?: string;
+  price?: number;
+  [key: string]: any;
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -40,8 +65,10 @@ export default function OrdersPage() {
 
         if (error) throw error;
 
-        const formattedOrders: Order[] = (data || []).map(order => {
-          const productData = Array.isArray(order.product) ? order.product[0] : order.product;
+        const formattedOrders: Order[] = (data || []).map((order: RawOrder) => {
+          const productData = Array.isArray(order.product) ? order.product[0] : order.product as RawProduct;
+          const addons = order.addons as Addon[] | null;
+          
           return {
             id: order.id,
             productName: productData?.title || 'Unknown Product',
@@ -51,10 +78,10 @@ export default function OrdersPage() {
             status: order.status || 'pending',
             expiresAt: order.expires_at,
             downloadUrl: order.download_url,
-            addons: order.addons || [],
-            hasBOQ: order.addons?.some((a: any) => a.name?.includes('BOQ')) || false,
-            hasInteriors: order.addons?.some((a: any) => a.name?.includes('Interior')) || false,
-            hasLandscape: order.addons?.some((a: any) => a.name?.includes('Landscape')) || false,
+            addons: addons || [],
+            hasBOQ: addons?.some((a: Addon) => a.name?.includes('BOQ')) || false,
+            hasInteriors: addons?.some((a: Addon) => a.name?.includes('Interior')) || false,
+            hasLandscape: addons?.some((a: Addon) => a.name?.includes('Landscape')) || false,
           };
         });
 

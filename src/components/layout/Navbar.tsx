@@ -6,9 +6,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 
 const navItems = [
   { name: "Plans", href: "/products" },
@@ -18,11 +19,15 @@ const navItems = [
   { name: "Contact", href: "/contact" },
 ];
 
+interface Profile {
+  role: string | null;
+}
+
 export function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,27 +43,31 @@ export function Navbar() {
           .select("role")
           .eq("id", session.user.id)
           .single();
-        setUserRole(profile?.role || "client");
+        setUserRole((profile as Profile)?.role || "client");
       }
       setLoading(false);
     };
 
     getUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => setUserRole(data?.role || "client"));
-      } else {
-        setUser(null);
-        setUserRole(null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        if (session?.user) {
+          setUser(session.user);
+          supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data: profile }: { data: Profile | null }) => {
+              setUserRole(profile?.role || "client");
+            });
+        } else {
+          setUser(null);
+          setUserRole(null);
+        }
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, [supabase]);
@@ -132,6 +141,7 @@ export function Navbar() {
                 src="/images/tefetro-logo.png"
                 alt="Tefetro Studios"
                 fill
+                sizes="(max-width: 768px) 120px, 160px"
                 className="object-contain"
                 priority
               />
@@ -178,7 +188,7 @@ export function Navbar() {
             title={getUserLabel()}
           >
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent-500 to-deep-600 flex items-center justify-center shadow-sm">
-              <User size={14} className="text-white" strokeWidth={2} />
+              <UserIcon size={14} className="text-white" strokeWidth={2} />
             </div>
             {!loading && user && (
               <span className="max-w-[100px] truncate text-blueprint-800">
@@ -242,7 +252,7 @@ export function Navbar() {
             aria-label={getUserLabel()}
           >
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-accent-500 to-deep-600 flex items-center justify-center">
-              <User size={12} className="text-white" strokeWidth={2} />
+              <UserIcon size={12} className="text-white" strokeWidth={2} />
             </div>
           </Link>
 
@@ -272,7 +282,6 @@ export function Navbar() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="absolute top-full mt-3 left-4 right-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-blueprint-200/30 shadow-xl p-2 pointer-events-auto"
             >
-              {/* User Section */}
               <Link
                 href={getUserHref()}
                 className={cn(
@@ -283,7 +292,7 @@ export function Navbar() {
                 )}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-500 to-deep-600 flex items-center justify-center shrink-0">
-                  <User size={14} className="text-white" strokeWidth={2} />
+                  <UserIcon size={14} className="text-white" strokeWidth={2} />
                 </div>
                 <div className="flex flex-col">
                   <span>{getUserLabel()}</span>
@@ -297,7 +306,6 @@ export function Navbar() {
 
               <div className="h-px bg-blueprint-200/50 my-2" />
 
-              {/* Home Link */}
               <Link
                 href="/"
                 className={cn(
@@ -311,7 +319,6 @@ export function Navbar() {
                 Home
               </Link>
 
-              {/* Navigation Links */}
               {navItems.map((item) => {
                 const active = isActive(item.href);
                 return (

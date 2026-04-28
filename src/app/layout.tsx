@@ -8,6 +8,7 @@ import InteractiveBackground from "@/components/InteractiveBackground";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { cn } from "@/lib/utils";
 
+
 const montserrat = Montserrat({
   subsets: ["latin"],
   display: "swap",

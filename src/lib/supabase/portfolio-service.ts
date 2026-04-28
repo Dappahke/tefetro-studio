@@ -8,6 +8,23 @@ import { PortfolioProject, PortfolioCategory } from '@/types/portfolio';
 
 const supabase = createClient();
 
+// Define the raw project type from Supabase
+interface RawPortfolioProject {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  category: PortfolioCategory;
+  plot_fit: string | null;
+  images: string[] | null;
+  featured: boolean | null;
+  featured_order: number | null;
+  display_order: number | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function getAllProjects(): Promise<PortfolioProject[]> {
   const { data, error } = await supabase
     .from('portfolio_projects')
@@ -22,7 +39,7 @@ export async function getAllProjects(): Promise<PortfolioProject[]> {
     return [];
   }
 
-  return (data || []).map(project => ({
+  return ((data || []) as RawPortfolioProject[]).map((project: RawPortfolioProject) => ({
     ...project,
     images: project.images || [],
   })) as PortfolioProject[];
@@ -44,7 +61,7 @@ export async function getFeaturedProjects(limit = 6): Promise<PortfolioProject[]
     return [];
   }
 
-  return (data || []).map(project => ({
+  return ((data || []) as RawPortfolioProject[]).map((project: RawPortfolioProject) => ({
     ...project,
     images: project.images || [],
   })) as PortfolioProject[];
@@ -67,7 +84,7 @@ export async function getProjectsByCategory(
     return [];
   }
 
-  return (data || []).map(project => ({
+  return ((data || []) as RawPortfolioProject[]).map((project: RawPortfolioProject) => ({
     ...project,
     images: project.images || [],
   })) as PortfolioProject[];
@@ -85,10 +102,13 @@ export async function getProjectBySlug(slug: string): Promise<PortfolioProject |
     return null;
   }
 
-  return data ? {
-    ...data,
-    images: data.images || [],
-  } as PortfolioProject : null;
+  if (!data) return null;
+
+  const rawData = data as RawPortfolioProject;
+  return {
+    ...rawData,
+    images: rawData.images || [],
+  } as PortfolioProject;
 }
 
 export async function getProjectsByPlotSize(plotSize: string): Promise<PortfolioProject[]> {
@@ -104,7 +124,7 @@ export async function getProjectsByPlotSize(plotSize: string): Promise<Portfolio
     return [];
   }
 
-  return (data || []).map(project => ({
+  return ((data || []) as RawPortfolioProject[]).map((project: RawPortfolioProject) => ({
     ...project,
     images: project.images || [],
   })) as PortfolioProject[];
@@ -129,7 +149,7 @@ export async function getRelatedProjects(
     return [];
   }
 
-  return (data || []).map(project => ({
+  return ((data || []) as RawPortfolioProject[]).map((project: RawPortfolioProject) => ({
     ...project,
     images: project.images || [],
   })) as PortfolioProject[];

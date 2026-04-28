@@ -19,10 +19,16 @@ import {
 } from 'lucide-react'
 import { Suspense } from 'react'
 import { cookies } from 'next/headers'
+import type { Metadata } from 'next'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Admin Dashboard | Tefetro',
   description: 'Tefetro Admin Panel',
+  icons: {
+    icon: '/images/tefetro-logo.png',
+    shortcut: '/images/tefetro-logo.png',
+    apple: '/images/tefetro-logo.png',
+  },
 }
 
 // Server action for signout

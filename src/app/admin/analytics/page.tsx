@@ -1,3 +1,4 @@
+// src/app/admin/analytics/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -18,19 +19,20 @@ type Order = {
   created_at: string;
 };
 
-type ChartData = {
-  date: string;
-  revenue: number;
-};
+interface RealtimePayload {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  new: Order;
+  old: Order;
+  schema: string;
+  table: string;
+}
 
 export default function AnalyticsPage() {
-  // ✅ FIX 1: Initialize Supabase correctly
   const supabase = useMemo(() => createClient(), []);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 Compute analytics
   const computeAnalytics = (orders: Order[]) => {
     const completed = orders.filter(
       (o) => o.status === "completed" || o.status === "paid"
@@ -48,36 +50,14 @@ export default function AnalyticsPage() {
       ? ((completedOrders / totalOrders) * 100).toFixed(1)
       : "0";
 
-    // 📊 Group revenue by date
-    const revenueMap: Record<string, number> = {};
-
-    completed.forEach((o) => {
-      const date = new Date(o.created_at).toLocaleDateString();
-
-      if (!revenueMap[date]) {
-        revenueMap[date] = 0;
-      }
-
-      revenueMap[date] += Number(o.total);
-    });
-
-    const chartData: ChartData[] = Object.entries(revenueMap).map(
-      ([date, revenue]) => ({
-        date,
-        revenue,
-      })
-    );
-
     return {
       revenue,
       orders: completedOrders,
       conversionRate,
-      chartData,
     };
   };
 
   useEffect(() => {
-    // 🔄 Initial fetch
     const fetchOrders = async () => {
       const { data, error } = await supabase
         .from("orders")
@@ -97,7 +77,6 @@ export default function AnalyticsPage() {
 
     fetchOrders();
 
-    // ⚡ REAL-TIME SUBSCRIPTION
     const channel = supabase
       .channel("orders-realtime")
       .on(
@@ -107,7 +86,7 @@ export default function AnalyticsPage() {
           schema: "public",
           table: "orders",
         },
-        (payload) => {
+        (payload: RealtimePayload) => {
           console.log("Realtime event:", payload);
 
           if (payload.eventType === "INSERT") {
@@ -134,7 +113,7 @@ export default function AnalyticsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]); // ✅ FIX 2: dependency added
+  }, [supabase]);
 
   if (loading) {
     return (
@@ -148,7 +127,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* HEADER */}
       <div>
         <h1 className="text-2xl font-semibold">
           Analytics Dashboard
@@ -158,7 +136,6 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard
           title="Revenue"
@@ -193,19 +170,18 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      {/* CHART */}
       <div className="bg-white rounded-2xl shadow p-5">
         <h2 className="text-lg font-medium mb-4">
           Revenue Trends
         </h2>
 
-        {analytics.chartData.length > 0 ? (
-          <RevenueAnalytics  />
-        ) : (
-          <p className="text-gray-400 text-sm">
-            No data available
-          </p>
-        )}
+        {/* Just render the component without passing data - it fetches its own */}
+        <RevenueAnalytics 
+          defaultRange="30d"
+          showControls={true}
+          height={400}
+          refreshInterval={30}
+        />
       </div>
     </div>
   );

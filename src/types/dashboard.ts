@@ -1,34 +1,31 @@
 // src/types/dashboard.ts
-
 export interface Order {
   id: string;
   productName: string;
   category: string;
   price: number;
   purchaseDate: string;
-  status: 'completed' | 'pending' | 'failed';
+  status: 'pending' | 'completed' | 'paid' | 'cancelled' | 'expired';
   expiresAt: string | null;
-  downloadUrl?: string;
-  addons?: any[];
+  downloadUrl: string | null;
+  addons: Addon[];
   hasBOQ: boolean;
   hasInteriors: boolean;
   hasLandscape: boolean;
 }
 
-export interface FileItem {
+export interface Addon {
+  id?: string;
   name: string;
-  type: 'pdf' | 'dwg' | 'image';
-  size: string;
-  url: string;
+  price: number;
+  description?: string;
+  downloadUrl?: string;
 }
 
-export interface Project {
+export interface UserProfile {
   id: string;
-  name: string;
-  type: string;
-  startDate: string;
-  expectedHandover: string;
-  currentPhase: string;
-  progress: number;
-  lastUpdate: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  created_at: string;
 }

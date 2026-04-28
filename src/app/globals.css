@@ -404,3 +404,32 @@ html {
     transition-duration: 0.01ms !important;
   }
 }
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+/* Smooth scrolling for the section */
+#services-section {
+  scroll-behavior: smooth;
+}
+
+/* Glass morphism effect for cards */
+.backdrop-blur-sm {
+  backdrop-filter: blur(10px);
+}

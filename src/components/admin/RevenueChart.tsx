@@ -1,8 +1,9 @@
-// components/admin/RevenueAnalytics.tsx
+// src/components/admin/RevenueChart.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { RealtimePostgresChangesPayload, RealtimeChannel } from "@supabase/supabase-js";
 import {
   Area,
   AreaChart,
@@ -24,7 +25,7 @@ import {
   Calendar, 
   RefreshCw, 
   Download,
-  MoreHorizontal,
+  FileText,
   ArrowUpRight,
   ArrowDownRight,
   DollarSign,
@@ -39,9 +40,9 @@ type ChartType = "area" | "bar" | "combined";
 interface OrderRecord {
   id: string;
   created_at: string;
-  amount: number;
-  status: "pending" | "completed" | "cancelled" | "refunded";
-  customer_id?: string;
+  total: number | string;
+  status: "pending" | "paid" | "completed" | "cancelled" | "refunded";
+  user_id?: string;
   product_id?: string;
 }
 
@@ -59,7 +60,7 @@ interface RevenueAnalyticsProps {
   defaultRange?: TimeRange;
   showControls?: boolean;
   height?: number;
-  refreshInterval?: number; // seconds, 0 = no polling
+  refreshInterval?: number;
 }
 
 const RANGE_CONFIG: Record<TimeRange, { days: number; label: string; interval: string }> = {
@@ -82,12 +83,21 @@ export function RevenueAnalytics({
   const [data, setData] = useState<DailyRevenue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [hoveredPoint, setHoveredPoint] = useState<DailyRevenue | null>(null);
-  const [selectedPoint, setSelectedPoint] = useState<DailyRevenue | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("connecting");
 
+  const chartRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  // Helper: safely parse total (handles string numeric from Supabase)
+  const parseTotal = (value: number | string | null | undefined): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
   // Process raw orders into daily aggregates
   const processOrders = useCallback((orders: OrderRecord[]): DailyRevenue[] => {
@@ -102,9 +112,10 @@ export function RevenueAnalytics({
       if (!acc[date]) {
         acc[date] = { revenue: 0, orders: 0, totalAmount: 0 };
       }
-      acc[date].revenue += order.amount;
+      const orderTotal = parseTotal(order.total);
+      acc[date].revenue += orderTotal;
       acc[date].orders += 1;
-      acc[date].totalAmount += order.amount;
+      acc[date].totalAmount += orderTotal;
       return acc;
     }, {} as Record<string, { revenue: number; orders: number; totalAmount: number }>);
 
@@ -115,7 +126,7 @@ export function RevenueAnalytics({
       d.setDate(d.getDate() + i);
       const dateStr = d.toISOString().split("T")[0];
       const dayData = grouped[dateStr] || { revenue: 0, orders: 0, totalAmount: 0 };
-      
+
       filled.push({
         date: dateStr,
         revenue: dayData.revenue,
@@ -151,12 +162,15 @@ export function RevenueAnalytics({
     try {
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("id, created_at, amount, status, customer_id")
+        .select("id, created_at, total, status, user_id")
         .gte("created_at", startDate.toISOString())
-        .in("status", ["completed", "refunded"])
+        .in("status", ["paid", "completed"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+
+      console.log("Fetched orders:", orders?.length || 0);
+      console.log("Sample order:", orders?.[0]);
 
       const processed = processOrders(orders || []);
       setData(processed);
@@ -173,24 +187,30 @@ export function RevenueAnalytics({
   useEffect(() => {
     fetchData();
 
-    const channel = supabase
-      .channel("revenue-analytics")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `status=in.(completed,refunded)`,
-        },
-        (payload) => {
-          console.log("Real-time update:", payload);
-          fetchData(true); // Silent refresh
-        }
-      )
-      .subscribe((status) => {
-        setConnectionStatus(status === "SUBSCRIBED" ? "connected" : "disconnected");
-      });
+    let channel: RealtimeChannel | null = null;
+
+    const setupSubscription = async () => {
+      channel = supabase
+        .channel("revenue-analytics")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `status=in.(paid,completed)`,
+          },
+          (payload: RealtimePostgresChangesPayload<OrderRecord>) => {
+            console.log("Real-time update:", payload);
+            fetchData(true);
+          }
+        )
+        .subscribe((status: string) => {
+          setConnectionStatus(status === "SUBSCRIBED" ? "connected" : "disconnected");
+        });
+    };
+
+    setupSubscription();
 
     // Polling fallback
     let intervalId: NodeJS.Timeout;
@@ -199,7 +219,9 @@ export function RevenueAnalytics({
     }
 
     return () => {
-      channel.unsubscribe();
+      if (channel) {
+        channel.unsubscribe();
+      }
       if (intervalId) clearInterval(intervalId);
     };
   }, [fetchData, refreshInterval, supabase]);
@@ -212,10 +234,10 @@ export function RevenueAnalytics({
     const totalOrders = data.reduce((sum, d) => sum + d.orders, 0);
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     const avgDailyRevenue = totalRevenue / data.length;
-    
+
     const maxDay = data.reduce((max, d) => d.revenue > max.revenue ? d : max, data[0]);
     const minDay = data.reduce((min, d) => d.revenue < min.revenue ? d : min, data[0]);
-    
+
     // Compare with previous period
     const midPoint = Math.floor(data.length / 2);
     const firstHalf = data.slice(0, midPoint);
@@ -234,7 +256,7 @@ export function RevenueAnalytics({
       maxDay,
       minDay,
       periodGrowth,
-      conversionRate: 68.5, // Mock - calculate from actual data
+      conversionRate: 68.5,
     };
   }, [data]);
 
@@ -252,6 +274,7 @@ export function RevenueAnalytics({
     return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
   };
 
+  // Export CSV
   const exportData = () => {
     const csv = [
       ["Date", "Revenue", "Orders", "Avg Order Value", "Growth %"].join(","),
@@ -272,10 +295,48 @@ export function RevenueAnalytics({
     a.click();
   };
 
+  // Export PDF via server-side API
+  const exportPDF = async () => {
+    try {
+      setIsExportingPDF(true);
+
+      const response = await fetch("/api/export/revenue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          timeRange,
+          chartData: data,
+          stats,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "PDF generation failed");
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tefetro-revenue-${timeRange}-${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
-    
+
     const dayData = payload[0].payload as DailyRevenue;
     const isPositive = (dayData.growth || 0) >= 0;
 
@@ -293,7 +354,7 @@ export function RevenueAnalytics({
             day: "numeric" 
           })}
         </p>
-        
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-stone-600 text-sm">Revenue</span>
@@ -301,12 +362,12 @@ export function RevenueAnalytics({
               {formatCurrency(dayData.revenue, false)}
             </span>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-stone-600 text-sm">Orders</span>
             <span className="font-semibold text-stone-800">{dayData.orders}</span>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-stone-600 text-sm">Avg Order</span>
             <span className="font-medium text-stone-700">
@@ -350,6 +411,7 @@ export function RevenueAnalytics({
 
   return (
     <motion.div
+      ref={chartRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden ${className}`}
@@ -376,7 +438,7 @@ export function RevenueAnalytics({
               Real-time revenue tracking and insights
             </p>
           </div>
-          
+
           {showControls && (
             <div className="flex items-center gap-2">
               <button
@@ -387,6 +449,16 @@ export function RevenueAnalytics({
               >
                 <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
               </button>
+
+              <button
+                onClick={exportPDF}
+                disabled={isExportingPDF}
+                className="p-2 text-stone-400 hover:text-tefetro hover:bg-orange-50 rounded-xl transition-all disabled:opacity-50"
+                title="Export PDF"
+              >
+                <FileText size={18} className={isExportingPDF ? "animate-pulse" : ""} />
+              </button>
+
               <button
                 onClick={exportData}
                 className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-xl transition-all"
@@ -485,17 +557,10 @@ export function RevenueAnalytics({
               >
                 <defs>
                   <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#EF961C" stopOpacity={0.3} />
-                    <stop offset="50%" stopColor="#EF961C" stopOpacity={0.1} />
-                    <stop offset="100%" stopColor="#EF961C" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#F28C00" stopOpacity={0.3} />
+                    <stop offset="50%" stopColor="#F28C00" stopOpacity={0.1} />
+                    <stop offset="100%" stopColor="#F28C00" stopOpacity={0} />
                   </linearGradient>
-                  <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
                 </defs>
 
                 <CartesianGrid 
@@ -524,7 +589,7 @@ export function RevenueAnalytics({
                   domain={[0, "auto"]}
                 />
 
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#EF961C", strokeWidth: 1, strokeDasharray: "4 4" }} />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#F28C00", strokeWidth: 1, strokeDasharray: "4 4" }} />
 
                 {stats && (
                   <ReferenceLine
@@ -539,7 +604,7 @@ export function RevenueAnalytics({
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#EF961C"
+                  stroke="#F28C00"
                   strokeWidth={3}
                   fill="url(#revenueGradient)"
                   animationDuration={1500}
@@ -572,7 +637,7 @@ export function RevenueAnalytics({
                   {data.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={entry.revenue > (stats?.avgDailyRevenue || 0) ? "#EF961C" : "#FDBA74"}
+                      fill={entry.revenue > (stats?.avgDailyRevenue || 0) ? "#F28C00" : "#FDBA74"}
                     />
                   ))}
                 </Bar>
@@ -587,13 +652,12 @@ export function RevenueAnalytics({
                 <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "#78716c", fontSize: 11 }} tickFormatter={(val) => formatCurrency(val)} width={80} />
                 <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "#78716c", fontSize: 11 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar yAxisId="left" dataKey="revenue" fill="#EF961C" radius={[4, 4, 0, 0]} opacity={0.8} />
+                <Bar yAxisId="left" dataKey="revenue" fill="#F28C00" radius={[4, 4, 0, 0]} opacity={0.8} />
                 <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#3B82F6" strokeWidth={2} dot={false} />
               </ComposedChart>
             )}
           </ResponsiveContainer>
 
-          {/* Hover overlay info */}
           <AnimatePresence>
             {hoveredPoint && (
               <motion.div
@@ -609,7 +673,6 @@ export function RevenueAnalytics({
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
         <div className="mt-4 flex items-center justify-between text-xs text-stone-400">
           <p>Last updated: {lastUpdated.toLocaleTimeString()}</p>
           <p className="flex items-center gap-1">
@@ -653,12 +716,12 @@ function StatCard({
           {icon}
         </div>
       </div>
-      
+
       <div className="space-y-1">
         <p className={`text-2xl font-bold ${highlight ? "text-stone-900" : "text-stone-800"}`}>
           {value}
         </p>
-        
+
         {(trend !== undefined || subtext) && (
           <div className="flex items-center gap-2">
             {trend !== undefined && (

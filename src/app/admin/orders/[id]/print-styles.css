@@ -1,14 +1,37 @@
 /* src/app/admin/orders/[id]/print-styles.css */
 
-/* Print-specific styles */
+/* ============================================
+   SCREEN ONLY — Hide print elements
+   ============================================ */
+@media screen {
+  .print-header,
+  .print-title,
+  .print-footer,
+  .print-only-block {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   PRINT ONLY — Clean order output
+   ============================================ */
 @media print {
-  /* Hide non-print elements */
+  /* Hide admin layout chrome (scoped to not affect page content) */
+  body > div > aside,
+  body > div > main > header,
+  [class*="MobileNav"],
   .no-print,
   .no-print * {
     display: none !important;
   }
 
-  /* Show print-only elements */
+  /* Remove sidebar margin offset */
+  body > div > main {
+    margin-left: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Show print elements */
   .print-header,
   .print-title,
   .print-footer,
@@ -26,7 +49,7 @@
     max-width: 100% !important;
   }
 
-  /* Remove shadows and borders for clean print */
+  /* Remove shadows, keep subtle borders */
   .shadow-soft {
     box-shadow: none !important;
     border: 1px solid #e5e7eb !important;
@@ -38,7 +61,7 @@
     background: white !important;
   }
 
-  /* Print layout */
+  /* Single column layout */
   .print-layout {
     display: block !important;
   }
@@ -47,7 +70,7 @@
     width: 100% !important;
   }
 
-  /* Print text styles */
+  /* Typography */
   .print-text-lg {
     font-size: 1.125rem !important;
   }
@@ -68,14 +91,14 @@
     color: #6b7280 !important;
   }
 
-  /* Print badges */
+  /* Badges */
   .print-badge {
     background: #f3f4f6 !important;
     border: 1px solid #e5e7eb !important;
     font-size: 0.75rem !important;
   }
 
-  /* Print sections */
+  /* Sections */
   .print-section {
     margin-bottom: 1.5rem !important;
     page-break-inside: avoid;
@@ -112,24 +135,9 @@
     gap: 0.25rem !important;
   }
 
-  /* Ensure images print */
+  /* Images */
   img {
     max-width: 100% !important;
     height: auto !important;
-  }
-
-  /* Page breaks */
-  .print-section {
-    page-break-inside: avoid;
-  }
-}
-
-/* Screen-only styles */
-@media screen {
-  .print-header,
-  .print-title,
-  .print-footer,
-  .print-only-block {
-    display: none !important;
   }
 }

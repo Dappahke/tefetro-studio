@@ -14,10 +14,8 @@ import {
   EyeOff,
 } from 'lucide-react'
 
-import {
-  ProductFormProps,
-  ProductFormState,
-} from './types'
+import { createClient } from '@/lib/supabase/client'
+import { ProductFormProps, ProductFormState } from './types'
 
 import {
   buildInitialState,
@@ -36,7 +34,10 @@ import { ElevationUploadSection } from './ElevationUploadSection'
 import { AddonsSection } from './AddonsSection'
 import { ServicesSection } from './ServicesSection'
 import { PricingSection } from './PricingSection'
+
 import { cn } from '@/lib/utils'
+
+const supabase = createClient()
 
 export function ProductForm({
   mode,
@@ -45,6 +46,7 @@ export function ProductForm({
   linkedAddons = [],
 }: ProductFormProps) {
   const router = useRouter()
+
   const [activeSection, setActiveSection] = useState('basic')
   const [showPreview, setShowPreview] = useState(false)
 
@@ -54,13 +56,20 @@ export function ProductForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+
   const [drawingFile, setDrawingFile] = useState<File | null>(null)
   const [elevationFiles, setElevationFiles] = useState<File[]>([])
   const [selectedAddons, setSelectedAddons] = useState<string[]>(
     linkedAddons.map((item) => item.addon_id)
   )
-  const [priceOverrides, setPriceOverrides] = useState<Record<string, string>>({})
-  const [documentFiles, setDocumentFiles] = useState<Record<string, File | null>>({})
+
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, string>>(
+    {}
+  )
+
+  const [documentFiles, setDocumentFiles] = useState<
+    Record<string, File | null>
+  >({})
 
   const existingDocuments = linkedAddons.reduce(
     (acc, item) => {
@@ -96,138 +105,176 @@ export function ProductForm({
 
       if (key === 'title') {
         const generated = makeSlug(String(value))
+
         if (!prev.slug || prev.slug === makeSlug(prev.title)) {
           next.slug = generated
         }
       }
 
       if (key === 'category') {
-        next.subcategory = CATEGORY_MAP[value as keyof typeof CATEGORY_MAP]?.[0] || ''
+        next.subcategory =
+          CATEGORY_MAP[value as keyof typeof CATEGORY_MAP]?.[0] || ''
       }
 
       return next
     })
 
-    setErrors((prev) => ({ ...prev, [key]: '' }))
+    setErrors((prev) => ({
+      ...prev,
+      [key]: '',
+    }))
   }
 
   function toggleAddon(addonId: string) {
     setSelectedAddons((prev) =>
-      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]
+      prev.includes(addonId)
+        ? prev.filter((id) => id !== addonId)
+        : [...prev, addonId]
     )
   }
 
   function updateAddonPrice(addonId: string, value: string) {
-    setPriceOverrides((prev) => ({ ...prev, [addonId]: value }))
+    setPriceOverrides((prev) => ({
+      ...prev,
+      [addonId]: value,
+    }))
   }
 
   function updateDocumentFile(addonId: string, file: File | null) {
-    setDocumentFiles((prev) => ({ ...prev, [addonId]: file }))
+    setDocumentFiles((prev) => ({
+      ...prev,
+      [addonId]: file,
+    }))
   }
 
   async function uploadFile(file: File, folder: string) {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('folder', folder)
-
-    const res = await fetch('/api/admin/upload', {
+    // Step 1: request signed upload token
+    const res = await fetch('/api/admin/create-upload-url', {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        folder,
+      }),
     })
 
+    const data = await res.json()
+
     if (!res.ok) {
-      const error = await res.json()
-      throw new Error(error.error || 'Upload failed')
+      throw new Error(data.error || 'Failed to prepare upload')
     }
-    const json = await res.json()
-    return json.path as string
+
+    // Step 2: direct upload to Supabase
+    const { error } = await supabase.storage
+      .from('drawings')
+      .uploadToSignedUrl(data.path, data.token, file)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data.path as string
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     const validation = validateProductForm(form)
+
     if (Object.keys(validation).length > 0) {
       setErrors(validation)
+
       const firstError = Object.keys(validation)[0]
       const section = getSectionForField(firstError)
+
       if (section) setActiveSection(section)
+
       return
     }
 
     try {
       setSubmitting(true)
 
-      // 1. Upload main drawing file
+      // Main drawing
       let drawingPath = product?.file_path || null
+
       if (drawingFile) {
         drawingPath = await uploadFile(drawingFile, 'drawings')
       }
 
-      // 2. Upload elevation images
+      // Elevations
       let elevationPaths = product?.elevation_images || []
+
       if (elevationFiles.length > 0) {
         elevationPaths = await Promise.all(
-          elevationFiles.map((file) => uploadFile(file, 'elevations'))
+          elevationFiles.map((file) =>
+            uploadFile(file, 'elevations')
+          )
         )
       }
 
-      // 3. Build addons data in the format your API expects
+      // Addons
       const addonsData = []
+
       for (const addonId of selectedAddons) {
         let documentPath = null
-        
+
         if (documentFiles[addonId]) {
-          // New document uploaded
-          documentPath = await uploadFile(documentFiles[addonId]!, 'addons')
+          documentPath = await uploadFile(
+            documentFiles[addonId]!,
+            'addons'
+          )
         } else if (existingDocuments[addonId]) {
-          // Existing document from database
           documentPath = existingDocuments[addonId]
         }
-        
+
         addonsData.push({
           addon_id: addonId,
-          price_override: priceOverrides[addonId] ? Number(priceOverrides[addonId]) : null,
+          price_override: priceOverrides[addonId]
+            ? Number(priceOverrides[addonId])
+            : null,
           document_path: documentPath,
         })
       }
 
-      // 4. Build payload matching API expectations
       const payload = {
         ...buildPayload(form),
         file_path: drawingPath,
         elevation_images: elevationPaths,
-        addons: addonsData,  // ✅ API expects 'addons' array with objects
+        addons: addonsData,
       }
 
-      console.log('📦 Sending payload to API:', JSON.stringify(payload, null, 2))
-
-      const endpoint = mode === 'create'
-        ? '/api/admin/products'
-        : `/api/admin/products/${product?.id}`
+      const endpoint =
+        mode === 'create'
+          ? '/api/admin/products'
+          : `/api/admin/products/${product?.id}`
 
       const method = mode === 'create' ? 'POST' : 'PATCH'
 
-      const res = await fetch(endpoint, {
+      const saveRes = await fetch(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       })
 
-      const responseData = await res.json()
+      const responseData = await saveRes.json()
 
-      if (!res.ok) {
-        console.error('API Error:', responseData)
+      if (!saveRes.ok) {
         throw new Error(responseData.error || 'Save failed')
       }
-
-      console.log('✅ Save successful:', responseData)
 
       router.push('/admin/products')
       router.refresh()
     } catch (error) {
       console.error('Submit error:', error)
-      alert(error instanceof Error ? error.message : 'Unable to save product.')
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to save product.'
+      )
     } finally {
       setSubmitting(false)
     }
@@ -248,36 +295,53 @@ export function ProductForm({
       floors: 'specs',
       plinth_area: 'specs',
     }
+
     return fieldMap[field] || null
   }
 
   function scrollToSection(sectionId: string) {
     setActiveSection(sectionId)
-    const element = document.getElementById(`section-${sectionId}`)
+
+    const element = document.getElementById(
+      `section-${sectionId}`
+    )
+
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="relative">
       <div className="flex gap-6">
-        {/* Sidebar Navigation */}
+        {/* Sidebar */}
         <aside className="hidden lg:block w-72 shrink-0">
           <div className="sticky top-24 bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
             <div className="p-4 bg-gradient-to-r from-blueprint-50 to-white border-b border-neutral-200">
-              <h3 className="font-semibold text-blueprint-900">Navigation</h3>
-              <p className="text-xs text-neutral-500 mt-1">Jump to any section</p>
+              <h3 className="font-semibold text-blueprint-900">
+                Navigation
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1">
+                Jump to any section
+              </p>
             </div>
+
             <nav className="p-2 space-y-1">
               {sections.map((section) => {
                 const Icon = section.icon
-                const isActive = activeSection === section.id
+                const isActive =
+                  activeSection === section.id
+
                 return (
                   <button
                     key={section.id}
                     type="button"
-                    onClick={() => scrollToSection(section.id)}
+                    onClick={() =>
+                      scrollToSection(section.id)
+                    }
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left',
                       isActive
@@ -285,8 +349,17 @@ export function ProductForm({
                         : 'text-neutral-600 hover:bg-neutral-50'
                     )}
                   >
-                    <Icon className={cn('w-4 h-4', isActive ? 'text-blueprint-600' : 'text-neutral-400')} />
+                    <Icon
+                      className={cn(
+                        'w-4 h-4',
+                        isActive
+                          ? 'text-blueprint-600'
+                          : 'text-neutral-400'
+                      )}
+                    />
+
                     <span>{section.label}</span>
+
                     {isActive && (
                       <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blueprint-600" />
                     )}
@@ -297,29 +370,40 @@ export function ProductForm({
           </div>
         </aside>
 
-        {/* Main Content */}
+        {/* Main */}
         <div className="flex-1 space-y-6">
           {/* Header */}
           <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-blueprint-900">
-                  {mode === 'create' ? 'Create New Product' : 'Edit Product'}
+                  {mode === 'create'
+                    ? 'Create New Product'
+                    : 'Edit Product'}
                 </h1>
+
                 <p className="text-sm text-neutral-500 mt-1">
-                  {mode === 'create' 
+                  {mode === 'create'
                     ? 'Add a new architectural plan to your catalog'
                     : 'Update product details, specifications, and add-ons'}
                 </p>
               </div>
+
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowPreview(!showPreview)}
+                  onClick={() =>
+                    setShowPreview(!showPreview)
+                  }
                   className="p-2 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
                 >
-                  {showPreview ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPreview ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
+
                 <button
                   type="submit"
                   disabled={submitting}
@@ -341,7 +425,6 @@ export function ProductForm({
             </div>
           </div>
 
-          {/* Form Sections */}
           <div id="section-basic">
             <BasicInfoSection
               form={form}
@@ -376,14 +459,18 @@ export function ProductForm({
           <div id="section-elevations">
             <ElevationUploadSection
               files={elevationFiles}
-              existingImages={product?.elevation_images || []}
+              existingImages={
+                product?.elevation_images || []
+              }
               onFilesChange={setElevationFiles}
             />
           </div>
 
           <div id="section-addons">
             <AddonsSection
-              addons={addons.filter(a => a.type === 'drawing')}
+              addons={addons.filter(
+                (a) => a.type === 'drawing'
+              )}
               selected={selectedAddons}
               linkedAddons={linkedAddons}
               priceOverrides={priceOverrides}
@@ -397,7 +484,9 @@ export function ProductForm({
 
           <div id="section-services">
             <ServicesSection
-              addons={addons.filter(a => a.type === 'service')}
+              addons={addons.filter(
+                (a) => a.type === 'service'
+              )}
               selected={selectedAddons}
               linkedAddons={linkedAddons}
               onToggle={toggleAddon}

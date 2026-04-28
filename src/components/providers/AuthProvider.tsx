@@ -9,7 +9,7 @@ import {
   useMemo,
 } from "react";
 import { createBrowserClient } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
+import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 type AuthContextType = {
   user: User | null;
@@ -81,7 +81,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     loadSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (_event: AuthChangeEvent, session: Session | null) => {
         if (!mounted) return;
 
         if (session?.user) {
