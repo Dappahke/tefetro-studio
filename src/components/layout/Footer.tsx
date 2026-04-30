@@ -25,7 +25,6 @@ const footerLinks = {
   company: [
     { name: "How It Works", href: "/how-it-works" },
     { name: "Our Portfolio", href: "/our-work" },
-    { name: "Trust & Process", href: "/process" },
     { name: "About Tefetro", href: "/about-us" },
     { name: "Journal", href: "/blog" },
   ],

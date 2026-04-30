@@ -6,6 +6,7 @@ import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import AuthProvider from "@/components/providers/AuthProvider";
+import TefetroWidget from "@/components/TefetroWidget";
 import { cn } from "@/lib/utils";
 
 
@@ -196,6 +197,7 @@ export default function RootLayout({
             </main>
           </LayoutWrapper>
         </AuthProvider>
+        <TefetroWidget />
       </body>
     </html>
   );
